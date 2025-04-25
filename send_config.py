@@ -3,13 +3,7 @@ import json
 import time
 import logging
 from datetime import datetime
-from dotenv import load_dotenv
-from netmiko import ConnectHandler
-
-# === Laad .env variabelen ===
-load_dotenv()
-username = os.getenv("USERNAME")
-password = os.getenv("PASSWORD")
+from netmiko import ConnectHandler, NetMikoTimeoutException, NetMikoAuthenticationException
 
 # === Logging setup ===
 log_dir = "logs"
@@ -23,15 +17,14 @@ logging.basicConfig(
     format='%(asctime)s - %(levelname)s - %(message)s'
 )
 
-# Ook loggen naar terminal:
+# Log ook naar console
 console = logging.StreamHandler()
 console.setLevel(logging.INFO)
 formatter = logging.Formatter('%(asctime)s - %(message)s', datefmt='%H:%M:%S')
 console.setFormatter(formatter)
 logging.getLogger().addHandler(console)
 
-
-# === Laad apparaten uit JSON ===
+# === Laad apparatenlijst ===
 with open("device_data/devices.json", "r") as f:
     devices = json.load(f)
 
@@ -39,6 +32,7 @@ print("Beschikbare switches:")
 for idx, device in enumerate(devices, start=1):
     print(f"{idx}. {device['name']} ({device['ip']})")
 
+# === Selectie ===
 try:
     selected_index = int(input("Selecteer een switch (nummer): ")) - 1
     selected_device = devices[selected_index]
@@ -46,7 +40,7 @@ except (IndexError, ValueError):
     print("Ongeldige selectie.")
     exit()
 
-# === Vraag configuratiebestand op ===
+# === Configbestand kiezen ===
 config_name = input("Naam van configbestand in 'config_files/' (bijv. example_config.txt): ").strip()
 config_path = os.path.join("config_files", config_name)
 
@@ -54,7 +48,7 @@ if not os.path.exists(config_path):
     print("Configbestand niet gevonden.")
     exit()
 
-# === Vraag cooldown in ms op ===
+# === Cooldown opvragen ===
 try:
     cooldown_ms = int(input("Cooldown in milliseconden: ").strip())
     cooldown = cooldown_ms / 1000
@@ -62,15 +56,21 @@ except ValueError:
     print("Ongeldige cooldown ingevoerd.")
     exit()
 
-# === Bereid verbinding voor ===
+# === Bereid verbindingsgegevens voor ===
 switch = {
     'device_type': selected_device['device_type'],
     'host': selected_device['ip'],
-    'username': username,
-    'password': password,
 }
 
-# === Lees en verstuur configuratie ===
+# Voeg username/password toe als ze bestaan
+if 'username' in selected_device and 'password' in selected_device:
+    switch['username'] = selected_device['username']
+    switch['password'] = selected_device['password']
+    logging.info("Inloggen met gebruikersnaam en wachtwoord.")
+else:
+    logging.info("Inloggen zonder gebruikersnaam/wachtwoord (anoniem of SSH keys).")
+
+# === Config versturen ===
 try:
     with open(config_path, 'r') as f:
         commands = f.read().splitlines()
@@ -86,7 +86,11 @@ try:
     print(f"Configuratie verzonden. Wachten {cooldown_ms} ms...")
     time.sleep(cooldown)
 
+except (NetMikoTimeoutException, NetMikoAuthenticationException) as e:
+    print(f"Verbindingsfout: {e}")
+    logging.error(f"Verbindingsfout: {e}")
 except Exception as e:
     print(f"Er is een fout opgetreden: {e}")
+    logging.error(f"Algemene fout: {e}")
 
 logging.info(f"Gebruik configbestand: {config_name}")
