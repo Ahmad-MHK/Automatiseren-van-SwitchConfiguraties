@@ -1,0 +1,13 @@
+[
+    {
+      "name": "Switch 1",
+      "ip": "192.168.1.10",
+      "device_type": "cisco_ios"
+    },
+    {
+      "name": "Switch 2",
+      "ip": "192.168.1.11",
+      "device_type": "hp_procurve"
+    }
+  ]
+  
