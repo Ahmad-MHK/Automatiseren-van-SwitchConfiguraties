@@ -1,0 +1,18 @@
+[
+    {
+      "ip": "192.168.1.10",
+      "device_type": "cisco_ios",
+      "username": "admin1",
+      "password": "secret123"
+    },
+    {
+      "ip": "192.168.1.11",
+      "device_type": "hp_procurve",
+      "username": "beheer",
+      "password": "wachtwoord456"
+    },
+    {
+      "ip": "192.168.1.15",
+      "device_type": "cisco_ios" 
+    }  
+  ]

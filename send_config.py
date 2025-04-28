@@ -3,6 +3,7 @@ import json
 import time
 import logging
 from datetime import datetime
+import socket
 from netmiko import ConnectHandler, NetMikoTimeoutException, NetMikoAuthenticationException
 
 # === Logging setup ===
@@ -70,6 +71,23 @@ if 'username' in selected_device and 'password' in selected_device:
 else:
     logging.info("Inloggen zonder gebruikersnaam/wachtwoord (anoniem of SSH keys).")
 
+# === Verbinding controleren ===
+def check_connection(ip, port=22, timeout=5):
+    """Controleer of TCP verbinding mogelijk is met de switch."""
+    try:
+        with socket.create_connection((ip, port), timeout=timeout):
+            return True
+    except (socket.timeout, socket.error):
+        return False
+
+if not check_connection(selected_device['ip']):
+    print(f"Kan geen verbinding maken met {selected_device['ip']} op poort 22.")
+    logging.error(f"Kan geen verbinding maken met {selected_device['ip']} op poort 22.")
+    exit()
+else:
+    print(f"TCP verbinding naar {selected_device['ip']} succesvol.")
+    logging.info(f"TCP verbinding naar {selected_device['ip']} succesvol.")
+
 # === Config versturen ===
 try:
     with open(config_path, 'r') as f:
@@ -87,8 +105,8 @@ try:
     time.sleep(cooldown)
 
 except (NetMikoTimeoutException, NetMikoAuthenticationException) as e:
-    print(f"Verbindingsfout: {e}")
-    logging.error(f"Verbindingsfout: {e}")
+    print(f"Verbindingsfout tijdens SSH: {e}")
+    logging.error(f"Verbindingsfout tijdens SSH: {e}")
 except Exception as e:
     print(f"Er is een fout opgetreden: {e}")
     logging.error(f"Algemene fout: {e}")
