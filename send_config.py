@@ -2,8 +2,8 @@ import os
 import json
 import time
 import logging
-from datetime import datetime
 import socket
+from datetime import datetime
 from netmiko import ConnectHandler, NetMikoTimeoutException, NetMikoAuthenticationException
 
 # === Logging setup ===
@@ -41,6 +41,16 @@ except (IndexError, ValueError):
     print("Ongeldige selectie.")
     exit()
 
+# === Kies protocol en poort ===
+try:
+    port_choice = int(input("Kies protocol:\n22 = SSH\n23 = Telnet\nKeuze: ").strip())
+    if port_choice not in [22, 23]:
+        print("Ongeldige keuze, standaard naar poort 22 (SSH).")
+        port_choice = 22
+except ValueError:
+    print("Ongeldige invoer, standaard naar poort 22 (SSH).")
+    port_choice = 22
+
 # === Configbestand kiezen ===
 config_name = input("Naam van configbestand in 'config_files/' (bijv. example_config.txt): ").strip()
 config_path = os.path.join("config_files", config_name)
@@ -59,9 +69,18 @@ except ValueError:
 
 # === Bereid verbindingsgegevens voor ===
 switch = {
-    'device_type': selected_device['device_type'],
     'host': selected_device['ip'],
+    'port': port_choice
 }
+
+# Device type aanpassen afhankelijk van SSH/Telnet
+if port_choice == 22:
+    switch['device_type'] = selected_device['device_type']  # zoals normaal, bv extreme_exos
+elif port_choice == 23:
+    # Forceren op een Telnet-compatible type
+    # Gebruik bijvoorbeeld 'terminal_server' of 'cisco_ios_telnet' als placeholder
+    switch['device_type'] = 'cisco_ios_telnet'  # Of 'generic_telnet' als je wilt
+    print("Telnet modus actief.")
 
 # Voeg username/password toe als ze bestaan
 if 'username' in selected_device and 'password' in selected_device:
@@ -80,20 +99,20 @@ def check_connection(ip, port=22, timeout=5):
     except (socket.timeout, socket.error):
         return False
 
-if not check_connection(selected_device['ip']):
-    print(f"Kan geen verbinding maken met {selected_device['ip']} op poort 22.")
-    logging.error(f"Kan geen verbinding maken met {selected_device['ip']} op poort 22.")
+if not check_connection(selected_device['ip'], port_choice):
+    print(f"Kan geen verbinding maken met {selected_device['ip']} op poort {port_choice}.")
+    logging.error(f"Kan geen verbinding maken met {selected_device['ip']} op poort {port_choice}.")
     exit()
 else:
-    print(f"TCP verbinding naar {selected_device['ip']} succesvol.")
-    logging.info(f"TCP verbinding naar {selected_device['ip']} succesvol.")
+    print(f"TCP verbinding naar {selected_device['ip']} op poort {port_choice} succesvol.")
+    logging.info(f"TCP verbinding naar {selected_device['ip']} op poort {port_choice} succesvol.")
 
 # === Config versturen ===
 try:
     with open(config_path, 'r') as f:
         commands = f.read().splitlines()
 
-    print(f"Verbinden met {switch['host']} ({selected_device['name']})...")
+    print(f"Verbinden met {switch['host']} ({selected_device['name']}) op poort {port_choice}...")
     net_connect = ConnectHandler(**switch)
 
     print("Configuratie versturen...")
@@ -105,8 +124,8 @@ try:
     time.sleep(cooldown)
 
 except (NetMikoTimeoutException, NetMikoAuthenticationException) as e:
-    print(f"Verbindingsfout tijdens SSH: {e}")
-    logging.error(f"Verbindingsfout tijdens SSH: {e}")
+    print(f"Verbindingsfout tijdens verbinding: {e}")
+    logging.error(f"Verbindingsfout tijdens verbinding: {e}")
 except Exception as e:
     print(f"Er is een fout opgetreden: {e}")
     logging.error(f"Algemene fout: {e}")
