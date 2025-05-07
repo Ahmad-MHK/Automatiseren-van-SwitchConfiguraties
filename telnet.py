@@ -3,6 +3,7 @@ import json
 import time
 import logging
 import socket
+import telnetlib
 from datetime import datetime
 from netmiko import ConnectHandler, NetMikoTimeoutException, NetMikoAuthenticationException
 
@@ -67,40 +68,8 @@ except ValueError:
     print("Ongeldige cooldown ingevoerd.")
     exit()
 
-# === Bereid verbindingsgegevens voor ===
-switch = {
-    'host': selected_device['ip'],
-    'port': port_choice
-}
-
-# Device type aanpassen afhankelijk van SSH/Telnet
-if port_choice == 22:
-    switch['device_type'] = selected_device['device_type']  # zoals normaal, bv extreme_exos
-elif port_choice == 23:
-    # Forceren op een Telnet-compatible type
-    # Gebruik bijvoorbeeld 'terminal_server' of 'cisco_ios_telnet' als placeholder
-    switch['device_type'] = 'cisco_ios_telnet'  # Of 'generic_telnet' als je wilt
-    print("Telnet modus actief.")
-
-# Voeg username/password toe als ze bestaan
-if 'username' in selected_device and 'password' in selected_device:
-    switch['username'] = selected_device['username']
-    switch['password'] = selected_device['password']
-    logging.info("Inloggen met gebruikersnaam en wachtwoord.")
-else:
-    if port_choice == 23:  # Speciaal voor Telnet
-        switch['username'] = ''
-        switch['password'] = ''
-        switch['default_enter'] = '\r'
-        switch['session_log'] = 'telnet_session.log'
-        logging.info("Telnet zonder username/password ingesteld.")
-    else:
-        logging.info("Inloggen zonder gebruikersnaam/wachtwoord (anoniem of SSH keys).")
-
-
 # === Verbinding controleren ===
 def check_connection(ip, port=22, timeout=5):
-    """Controleer of TCP verbinding mogelijk is met de switch."""
     try:
         with socket.create_connection((ip, port), timeout=timeout):
             return True
@@ -120,16 +89,51 @@ try:
     with open(config_path, 'r') as f:
         commands = f.read().splitlines()
 
-    print(f"Verbinden met {switch['host']} ({selected_device['name']}) op poort {port_choice}...")
-    net_connect = ConnectHandler(**switch)
+    if port_choice == 22:
+        # SSH connectie via Netmiko
+        switch = {
+            'host': selected_device['ip'],
+            'device_type': selected_device['device_type'],
+            'port': 22
+        }
 
-    print("Configuratie versturen...")
-    output = net_connect.send_config_set(commands)
-    print(output)
+        if 'username' in selected_device and 'password' in selected_device:
+            switch['username'] = selected_device['username']
+            switch['password'] = selected_device['password']
+            logging.info("Inloggen met gebruikersnaam en wachtwoord.")
+        else:
+            logging.info("Inloggen zonder gebruikersnaam/wachtwoord.")
 
-    net_connect.disconnect()
-    print(f"Configuratie verzonden. Wachten {cooldown_ms} ms...")
-    time.sleep(cooldown)
+        print(f"Verbinden met {switch['host']} ({selected_device['name']}) via SSH...")
+        net_connect = ConnectHandler(**switch)
+
+        print("Configuratie versturen...")
+        output = net_connect.send_config_set(commands)
+        print(output)
+
+        net_connect.disconnect()
+        print(f"Configuratie verzonden. Wachten {cooldown_ms} ms...")
+        time.sleep(cooldown)
+
+    elif port_choice == 23:
+        # Telnet connectie via telnetlib
+        print(f"Verbinden met {selected_device['ip']} via Telnet...")
+        tn = telnetlib.Telnet(selected_device['ip'], 23, 5)
+
+        # Belangrijk: Ctrl-Y sturen om sessie te activeren
+        tn.write(b'\x19')  # Ctrl-Y
+        time.sleep(1)
+
+        for cmd in commands:
+            tn.write(cmd.encode('ascii') + b"\r\n")
+            time.sleep(1)
+            output = tn.read_very_eager().decode('ascii', errors='ignore')
+            print(f"Output van commando '{cmd}':\n{output}")
+
+        tn.write(b"exit\r\n")
+        tn.close()
+        print(f"Configuratie verzonden. Wachten {cooldown_ms} ms...")
+        time.sleep(cooldown)
 
 except (NetMikoTimeoutException, NetMikoAuthenticationException) as e:
     print(f"Verbindingsfout tijdens verbinding: {e}")
