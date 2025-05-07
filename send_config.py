@@ -159,3 +159,6 @@ for selected_device in selected_devices:
         logging.error(f"Algemene fout: {e}")
 
     logging.info(f"Gebruik configbestand: {config_name}")
+
+
+# === Mad by Ahmad Mahouk Software developer ===

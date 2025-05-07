@@ -9,7 +9,6 @@ Automatiseer het configureren van meerdere netwerk switches via SSH, met logging
 ```bash
 network_automation_project/
 │
-├── .env                      # Bevat je gebruikersnaam en wachtwoord (NOOIT uploaden)
 ├── config_files/             # Hier bewaar je configuratiebestanden (bv. voor interfaces)
 │   └── example_config.txt
 ├── device_data/              # Lijst van switches met IP en type
