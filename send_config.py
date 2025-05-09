@@ -161,4 +161,4 @@ for selected_device in selected_devices:
     logging.info(f"Gebruik configbestand: {config_name}")
 
 
-# === Mad by Ahmad Mahouk Software developer ===
+# === Made by Ahmad Mahouk Software developer ===

@@ -1,0 +1,4 @@
+configure terminal
+hostname MyTestSwitch
+exit
+write memory
