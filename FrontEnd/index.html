@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Switch Config</title>
+</head>
+<body>
+  <h2>Send Switch Config</h2>
+  <input id="ip" placeholder="IP address"><br>
+  <input id="deviceType" placeholder="Device type (e.g. cisco_ios)"><br>
+  <select id="protocol">
+    <option value="ssh">SSH</option>
+    <option value="telnet">Telnet</option>
+  </select><br>
+  <input id="username" placeholder="Username"><br>
+  <input id="password" type="password" placeholder="Password"><br>
+  <textarea id="config" rows="5" cols="40" placeholder="Enter configuration commands"></textarea><br>
+
+  <label>Or upload config file:</label>
+  <input type="file" id="configFile" accept=".txt"><br>
+
+  <button onclick="sendConfig()">Send</button>
+  <pre id="output"></pre>
+
+  <script src="script.js"></script>
+</body>
+</html>
