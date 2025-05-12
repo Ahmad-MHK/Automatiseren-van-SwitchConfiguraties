@@ -1,4 +1,5 @@
 import paramiko
+import telnetlib
 import time
 import os
 
@@ -32,39 +33,76 @@ def load_config(filename):
 def send_config_ssh(ip, config_lines, cooldown, username=None, password=None):
     try:
         print(f"\n[+] Connecting to {ip} via SSH...")
-        
-        # Force Paramiko to allow old KEX algorithms
+
         from paramiko.transport import Transport
         Transport._preferred_kex = [
             'diffie-hellman-group1-sha1',
             'diffie-hellman-group14-sha1'
         ]
+        Transport._preferred_ciphers = (
+            'aes128-cbc',
+            '3des-cbc',
+            'aes192-cbc',
+            'aes256-cbc'
+        )
 
-        ssh = paramiko.SSHClient()
-        ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-        ssh.connect(ip, username=username, password=password, timeout=10, allow_agent=False, look_for_keys=False)
+        transport = Transport((ip, 22))
+        transport.start_client(timeout=10)
+        transport.auth_password(username, password)
 
-        remote = ssh.invoke_shell()
+        if not transport.is_authenticated():
+            raise Exception("SSH authentication failed.")
+
+        session = transport.open_session()
+        session.get_pty()
+        session.invoke_shell()
         time.sleep(1)
-        remote.send('enable\n')
-        time.sleep(0.5)
 
-        remote.send('terminal length 0\n')
+        session.send("disable clipaging\n")
         time.sleep(0.5)
 
         for line in config_lines:
-            remote.send(line + '\n')
+            session.send(line + "\n")
             time.sleep(cooldown)
 
-        remote.send('end\n')
-        time.sleep(0.5)
-        remote.send('exit\n')
-        ssh.close()
+        session.send("save config\n")
+        time.sleep(1)
+        session.send("exit\n")
 
+        transport.close()
         print(f"[✓] Config sent to {ip} successfully.")
     except Exception as e:
-        print(f"[✗] Failed to connect/send to {ip}: {e}")
+        print(f"[✗] Failed to connect/send to {ip} via SSH: {e}")
 
+def send_config_telnet(ip, config_lines, cooldown, username=None, password=None):
+    try:
+        print(f"\n[+] Connecting to {ip} via Telnet...")
+        tn = telnetlib.Telnet(ip, timeout=10)
+
+        if username:
+            tn.read_until(b"Username: ")
+            tn.write(username.encode("ascii") + b"\n")
+
+        if password:
+            tn.read_until(b"Password: ")
+            tn.write(password.encode("ascii") + b"\n")
+
+        tn.write(b"enable\n")
+        if password:
+            tn.write(password.encode("ascii") + b"\n")
+
+        tn.write(b"disable clipaging\n")
+        time.sleep(1)
+
+        for line in config_lines:
+            tn.write(line.encode("ascii") + b"\n")
+            time.sleep(cooldown)
+
+        tn.write(b"save config\n")
+        tn.write(b"exit\n")
+        print(f"[✓] Telnet config sent to {ip} successfully.")
+    except Exception as e:
+        print(f"[✗] Failed to connect/send to {ip} via Telnet: {e}")
 
 def main():
     all_devices = get_device_entries()
@@ -103,8 +141,16 @@ def main():
         print("Invalid cooldown.")
         return
 
+    protocol = input("Choose protocol (ssh/telnet): ").strip().lower()
+    if protocol not in ("ssh", "telnet"):
+        print("Invalid protocol. Must be 'ssh' or 'telnet'.")
+        return
+
     for device in selected_devices:
-        send_config_ssh(device['ip'], config_lines, cooldown, device['username'], device['password'])
+        if protocol == "ssh":
+            send_config_ssh(device['ip'], config_lines, cooldown, device['username'], device['password'])
+        else:
+            send_config_telnet(device['ip'], config_lines, cooldown, device['username'], device['password'])
 
 if __name__ == "__main__":
     main()
