@@ -1,0 +1,3 @@
+interface GigabitEthernet0/1
+description Configured via script
+no shutdown

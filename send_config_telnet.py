@@ -1,4 +1,4 @@
-import paramiko
+import telnetlib
 import time
 import os
 
@@ -29,42 +29,32 @@ def load_config(filename):
     with open(os.path.join(CONFIG_FOLDER, filename)) as f:
         return [line.strip() for line in f if line.strip()]
 
-def send_config_ssh(ip, config_lines, cooldown, username=None, password=None):
+def send_config(ip, config_lines, cooldown, username=None, password=None):
     try:
-        print(f"\n[+] Connecting to {ip} via SSH...")
-        
-        # Force Paramiko to allow old KEX algorithms
-        from paramiko.transport import Transport
-        Transport._preferred_kex = [
-            'diffie-hellman-group1-sha1',
-            'diffie-hellman-group14-sha1'
-        ]
+        print(f"\nConnecting to {ip}...")
+        tn = telnetlib.Telnet(ip, timeout=10)
 
-        ssh = paramiko.SSHClient()
-        ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-        ssh.connect(ip, username=username, password=password, timeout=10, allow_agent=False, look_for_keys=False)
+        if username and password:
+            tn.read_until(b"Username: ", timeout=5)
+            tn.write(username.encode('ascii') + b"\n")
+            tn.read_until(b"Password: ", timeout=5)
+            tn.write(password.encode('ascii') + b"\n")
 
-        remote = ssh.invoke_shell()
-        time.sleep(1)
-        remote.send('enable\n')
-        time.sleep(0.5)
+        tn.write(b"enable\n")
+        if password:
+            tn.write(password.encode('ascii') + b"\n")
 
-        remote.send('terminal length 0\n')
-        time.sleep(0.5)
+        tn.write(b"terminal length 0\n")
 
         for line in config_lines:
-            remote.send(line + '\n')
+            tn.write(line.encode("ascii") + b"\n")
             time.sleep(cooldown)
 
-        remote.send('end\n')
-        time.sleep(0.5)
-        remote.send('exit\n')
-        ssh.close()
-
-        print(f"[✓] Config sent to {ip} successfully.")
+        tn.write(b"end\n")
+        tn.write(b"exit\n")
+        print(f"Config sent to {ip} successfully.")
     except Exception as e:
-        print(f"[✗] Failed to connect/send to {ip}: {e}")
-
+        print(f"Failed to connect/send to {ip}: {e}")
 
 def main():
     all_devices = get_device_entries()
@@ -104,7 +94,7 @@ def main():
         return
 
     for device in selected_devices:
-        send_config_ssh(device['ip'], config_lines, cooldown, device['username'], device['password'])
+        send_config(device['ip'], config_lines, cooldown, device['username'], device['password'])
 
 if __name__ == "__main__":
     main()
