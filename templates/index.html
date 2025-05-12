@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Switch Config Tool</title>
+</head>
+<body>
+    <h1>Push Config to Switch</h1>
+    <form method="POST">
+        <label>Select Devices:</label><br>
+        {% for device in devices %}
+            <input type="checkbox" name="devices" value="{{ device.id }}">
+            {{ device.label }}<br>
+        {% endfor %}
+        <br>
+
+        <label>Select Config File:</label>
+        <select name="config">
+            {% for config in configs %}
+                <option value="{{ config }}">{{ config }}</option>
+            {% endfor %}
+        </select><br><br>
+
+        <label>Protocol:</label>
+        <select name="protocol">
+            <option value="ssh">SSH</option>
+            <option value="telnet">Telnet</option>
+        </select><br><br>
+
+        <label>Cooldown (ms):</label>
+        <input type="number" name="cooldown" value="1000"><br><br>
+
+        <button name="send_config" type="submit">Send Config</button>
+    </form>
+
+    {% if result %}
+        <h2>Result:</h2>
+        <pre>{{ result }}</pre>
+    {% endif %}
+
+    <hr>
+
+    <h2>Upload Device or Config File</h2>
+    <form method="POST" action="/upload" enctype="multipart/form-data">
+        <input type="file" name="file" required>
+        <select name="filetype">
+            <option value="devices">Device</option>
+            <option value="configs">Config</option>
+        </select>
+        <button type="submit">Upload</button>
+    </form>
+
+    <h2>Delete Files</h2>
+    <form method="POST" action="/delete">
+        <select name="filetype">
+            <option value="devices">Device</option>
+            <option value="configs">Config</option>
+        </select>
+        <input type="text" name="filename" placeholder="Exact filename">
+        <button type="submit">Delete</button>
+    </form>
+</body>
+</html>
