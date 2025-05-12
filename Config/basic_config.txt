@@ -1,0 +1,5 @@
+configure terminal
+interface ethernet 1/1
+description TEST-CONFIG-FROM-SCRIPT
+exit
+exit
