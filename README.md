@@ -1,6 +1,6 @@
 # 🔧 Switch Config Deployment Tool
 
-A web-based Python/Flask tool for pushing configuration commands to multiple network switches  via SSH or Telnet. Includes bulk selection, filtering, logging, and upload/delete management of device and config files.
+A web-based Python/Flask tool for pushing configuration commands to multiple network switches via SSH or Telnet. Includes bulk selection, filtering, logging, and upload/delete management of device and config files.
 
 ---
 
