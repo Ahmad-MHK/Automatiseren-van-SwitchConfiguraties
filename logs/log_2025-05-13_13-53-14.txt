@@ -1,0 +1,8 @@
+192.168.1.1 [no password]:
+Sent: Ctrl+Y (auto-detected)
+Sent: configure terminal
+Sent: interface ethernet 1/1
+Sent: description TEST-CONFIG-FROM-SCRIPT
+Sent: exit
+Sent: exit
+[✓] Telnet config sent successfully to 192.168.1.1

@@ -194,6 +194,15 @@ def index():
 
         result = "\n\n".join(results)
 
+        # Save to logs folder with timestamp
+        timestamp = time.strftime("%Y-%m-%d_%H-%M-%S")
+        log_filename = f"logs/log_{timestamp}.txt"
+        os.makedirs("logs", exist_ok=True)
+        with open(log_filename, "w", encoding="utf-8") as log_file:
+            log_file.write(result)
+
+
+
     return render_template("index.html", devices=devices, configs=configs, result=result)
 
 @app.route("/upload", methods=["POST"])
@@ -220,6 +229,18 @@ def delete_file():
     if os.path.exists(path):
         os.remove(path)
     return redirect(url_for("index"))
+
+@app.route("/logs")
+def show_logs():
+    """Lists and displays all saved log files."""
+    log_files = sorted(os.listdir("logs"), reverse=True)
+    logs = []
+    for file in log_files:
+        path = os.path.join("logs", file)
+        with open(path) as f:
+            logs.append((file, f.read()))
+    return render_template("logs.html", logs=logs)
+
 
 if __name__ == "__main__":
     app.run(debug=True)

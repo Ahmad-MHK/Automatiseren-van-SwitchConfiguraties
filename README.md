@@ -1,91 +1,92 @@
-# Switch Config Tool
+# 🔧 Switch Config Deployment Tool
 
-A web-based tool to push configurations to network switches via SSH or Telnet.
-
----
-
-## Features
-
-* Upload device connection profiles (IP, optional username/password)
-* Upload configuration files (text-based command sets)
-* Select one or more devices to push config to
-* Choose protocol: SSH or Telnet
-* Customize command cooldown (in milliseconds)
-* View success/failure feedback per device
-* Web interface with upload and delete functionality
-* Clean UI with logo and credit footer
+A web-based Python/Flask tool for pushing configuration commands to multiple network switches  via SSH or Telnet. Includes bulk selection, filtering, logging, and upload/delete management of device and config files.
 
 ---
 
-## Folder Structure
+## 📦 Features
 
-```
+- ✅ Push configuration to one or many switches (SSH/Telnet)
+- ✅ Auto-detect password-protected devices
+- ✅ Filter by IP, password presence, or both
+- ✅ View and search historical logs in browser
+- ✅ Upload/delete config and device files
+- ✅ Logs saved per session in `logs/` folder
+- ✅ Designed for legacy switch support (e.g., Ctrl+Y detection, legacy ciphers)
+
+---
+
+## 📁 Folder Structure
+
 project/
-├── app.py
-├── Devices/              # Device IP files (one per file)
-├── Config/               # CLI config files
-├── static/
-│   ├── style.css         # UI styling
-│   └── logo.png          # Your logo (optional)
+│
+├── app.py # Main Flask app
+├── Devices/ # Device files (IP, optional username/password)
+├── Config/ # Config scripts (plain text commands)
+├── logs/ # Saved logs (auto-created)
 ├── templates/
-│   └── index.html        # Web interface template
-```
+│ ├── index.html # Main web UI
+│ └── logs.html # Log viewer page
+└── static/
+├── style.css # Basic styling
+└── Com1-Oranje.png # Logo
+
 
 ---
 
-## Device File Format (in /Devices)
+## 🖥️ Device File Format
 
-```
+**With password:**
 192.168.1.1
 username:admin
-password:admin123
-```
+password:MySecurePass123
 
-* Only IP is required
-* Username/password are optional
+**Without password:**
 
----
+192.168.1.2
 
-## Config File Format (in /Config)
 
-```
-configure terminal
-interface ethernet 1/1
-description TEST-CONFIG-FROM-SCRIPT
-exit
-exit
-```
+Place these files inside the `Devices/` folder.
 
 ---
 
-## Running Locally
+## ⚙️ Usage
 
-### Install Requirements
+1. Install requirements:
+    ```bash
+    pip install flask paramiko
+    ```
 
-```bash
-pip install flask paramiko
-```
+2. Run the server:
+    ```bash
+    python app.py
+    ```
 
-### Start the App
-
-```bash
-python app.py
-```
-
-Then open:
-
-```
-http://localhost:5000
-```
+3. Open your browser:
+    ```
+    http://localhost:5000
+    ```
 
 ---
 
-## Deployment (Unix server)
+## 📄 Logs
 
-Later, you can use `gunicorn` + `nginx` to run this as a secure service.
+- Logs are saved as `.txt` files in the `logs/` folder with timestamped names.
+- Accessible via the **"View Logs"** button in the web interface.
 
 ---
 
-## Credits
+## 🧠 Known Limitations
 
-Made by **Ahmad Mahouk**
+- Assumes `disable clipaging` is supported by the device.
+- SSH over legacy switches may require relaxed security (handled via Paramiko settings).
+- Only CLI/ASCII configs are supported.
+
+---
+
+## 🙋‍♂️ Author
+
+Made with 💡 by **Ahmad Mahouk**  
+For Com1 IT Solutions Internship Project
+
+
