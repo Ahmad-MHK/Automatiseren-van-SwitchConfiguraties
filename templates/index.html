@@ -3,71 +3,160 @@
 <head>
     <title>Switch Config Tool</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 </head>
 <body>
 
-<header>
-    <div>
-        <img src="{{ url_for('static', filename='Com1-Oranje.png') }}" alt="Logo">
-    </div>
-    <h1>Push Config to Switch</h1>
-</header>
+    <header style="display: flex; align-items: center; justify-content: space-between;">
+        <div>
+            <img src="{{ url_for('static', filename='Com1-Oranje.png') }}" alt="Logo">
+        </div>
+        <h1>Push Config to Switch</h1>
+        <a href="{{ url_for('show_logs') }}" class="btn">View Logs</a>
+    </header>
+    <form method="POST">
+        <h4>Select Devices:</h4>
 
-<form method="POST">
-    <label>Select Devices:</label><br>
-    {% for device in devices %}
-        <input type="checkbox" name="devices" value="{{ device.id }}">
-        {{ device.label }}<br>
-    {% endfor %}
-    <br>
+        <input type="text" id="device-search" placeholder="Search by IP..." style="width: 250px;">
+        <label><input type="checkbox" id="filter-password"> Show only devices with password</label>
+        <label><input type="checkbox" id="filter-no-password"> Show only devices without password</label>
+        <button type="button" id="select-visible">Select All Visible</button>
+        <button type="button" id="deselect-all">Deselect All Devices</button>
+        <button type="button" id="select-all">Select All Devices</button>
 
-    <label>Select Config File:</label>
-    <select name="config">
-        {% for config in configs %}
-            <option value="{{ config }}">{{ config }}</option>
-        {% endfor %}
-    </select><br>
+        <div id="device-list">
+            {% for device in devices %}
+                <div class="device-entry" data-ip="{{ device.ip }}" data-password="{{ 'yes' if device.has_password else 'no' }}">
+                    <input type="checkbox" name="devices" value="{{ device.id }}">
+                    {{ device.label }}
+                </div>
+            {% endfor %}
+        </div>
 
-    <label>Protocol:</label>
-    <select name="protocol">
-        <option value="ssh">SSH</option>
-        <option value="telnet">Telnet</option>
-    </select><br>
+        <label>Select Config File:</label>
+        <select name="config">
+            {% for config in configs %}
+                <option value="{{ config }}">{{ config }}</option>
+            {% endfor %}
+        </select><br>
 
-    <label>Cooldown (ms):</label>
-    <input type="number" name="cooldown" value="1000"><br>
+        <label>Protocol:</label>
+        <select name="protocol">
+            <option value="ssh">SSH</option>
+            <option value="telnet">Telnet</option>
+        </select><br>
 
-    <button name="send_config" type="submit">Send Config</button>
-</form>
+        <label>Cooldown (ms):</label>
+        <input type="number" name="cooldown" value="1000"><br>
 
-{% if result %}
-    <h2>Result:</h2>
-    <pre>{{ result }}</pre>
-{% endif %}
+        <button name="send_config" type="submit">Send Config</button>
+    </form>
 
-<form method="POST" action="/upload" enctype="multipart/form-data">
-    <h2>Upload Device or Config File</h2>
-    <input type="file" name="file" required>
-    <select name="filetype">
-        <option value="devices">Device</option>
-        <option value="configs">Config</option>
-    </select>
-    <button type="submit">Upload</button>
-</form>
+    {% if result %}
+        <h2>Result:</h2>
+        <pre>{{ result }}</pre>
+    {% endif %}
 
-<form method="POST" action="/delete">
-    <h2>Delete Files</h2>
-    <select name="filetype">
-        <option value="devices">Device</option>
-        <option value="configs">Config</option>
-    </select>
-    <input type="text" name="filename" placeholder="Exact filename" required>
-    <button type="submit">Delete</button>
-</form>
+    <form method="POST" action="/upload" enctype="multipart/form-data">
+        <h2>Upload Device or Config File</h2>
+        <input type="file" name="file" required>
+        <select name="filetype">
+            <option value="devices">Device</option>
+            <option value="configs">Config</option>
+        </select>
+        <button type="submit">Upload</button>
+    </form>
+
+    <form method="POST" action="/delete">
+        <h2>Delete Files</h2>
+        <select name="filetype">
+            <option value="devices">Device</option>
+            <option value="configs">Config</option>
+        </select>
+        <input type="text" name="filename" placeholder="Exact filename" required>
+        <button type="submit">Delete</button>
+    </form>
+
+    <form action="">
+        <h2>Device File look Like</h2>
+        <label>With a password</label>
+        <pre>
+            192.168.1.1
+            username:admin
+            password:Com123Com!@#
+        </pre>
+        <label>no password</label>
+        <pre>
+            192.168.1.1
+        </pre>
+    </form>
 
 <footer>
     Made by Ahmad Mahouk
 </footer>
+
+<script>
+$(document).ready(function() {
+    $("#filter-no-password").on("change", filterDevices);
+    function filterDevices() {
+        const search = $("#device-search").val().toLowerCase();
+        const filterPwd = $("#filter-password").is(":checked");
+
+        $(".device-entry").each(function() {
+            const ip = $(this).data("ip").toLowerCase();
+            const hasPwd = $(this).data("password") === "yes";
+            const matchesSearch = ip.includes(search);
+            const matchesPwd = !filterPwd || hasPwd;
+
+            if (matchesSearch && matchesPwd) {
+                $(this).show();
+            } else {
+                $(this).hide();
+                $(this).find("input[type=checkbox]").prop("checked", false);
+            }
+        });
+    }
+
+    $("#device-search").on("input", filterDevices);
+    $("#filter-password").on("change", filterDevices);
+
+    $("#select-visible").on("click", function() {
+        $(".device-entry:visible input[type=checkbox]").prop("checked", true);
+    });
+
+    $("#select-all").on("click", function() {
+    $(".device-entry input[type=checkbox]").prop("checked", true);
+    });
+
+    $("#deselect-all").on("click", function() {
+        $(".device-entry input[type=checkbox]").prop("checked", false);
+    });
+
+    function filterDevices() {
+        const search = $("#device-search").val().toLowerCase();
+        const filterPwd = $("#filter-password").is(":checked");
+        const filterNoPwd = $("#filter-no-password").is(":checked");
+
+        $(".device-entry").each(function () {
+            const ip = $(this).data("ip").toLowerCase();
+            const hasPwd = $(this).data("password") === "yes";
+            const matchesSearch = ip.includes(search);
+            const matchesWithPwd = !filterPwd || hasPwd;
+            const matchesNoPwd = !filterNoPwd || !hasPwd;
+
+            if (matchesSearch && matchesWithPwd && matchesNoPwd) {
+                $(this).show();
+            } else {
+                $(this).hide();
+                $(this).find("input[type=checkbox]").prop("checked", false);
+            }
+        });
+    }
+
+
+});
+</script>
+
 
 </body>
 </html>

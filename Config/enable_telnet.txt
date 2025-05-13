@@ -1,0 +1,6 @@
+configure terminal
+line vty 0 4
+transport input telnet ssh
+exit
+end
+write memory

@@ -1,0 +1,4 @@
+enable
+configure terminal
+snmp-server disable
+exit

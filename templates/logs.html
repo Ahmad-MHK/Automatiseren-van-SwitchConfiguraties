@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Config Logs</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <header>
+        <div>
+            <img src="{{ url_for('static', filename='Com1-Oranje.png') }}" alt="Logo">
+        </div>
+        <h1>Configuration Logs</h1>
+        <a href="{{ url_for('index') }}">⬅ Back to Home</a>
+    </header>
+
+    <div>
+        {% for filename, content in logs %}
+            <h3>{{ filename }}</h3>
+            <pre>{{ content }}</pre>
+            <hr>
+        {% endfor %}
+    </div>
+</body>
+</html>
