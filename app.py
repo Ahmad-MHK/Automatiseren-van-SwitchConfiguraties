@@ -61,35 +61,46 @@ def load_config(filename):
 def send_ssh(ip, config_lines, cooldown, username, password):
     """
     Sends configuration lines to a device over SSH.
-    Adds a cooldown delay between each command.
+    Includes basic login check and optional banner scan.
+    Note: ERS switches do not support full config mode over SSH.
     """
     output = []
     try:
-        # Force older key exchange algorithms for legacy device support
         from paramiko.transport import Transport
+
+        # Enable support for legacy encryption for ERS devices
         Transport._preferred_kex = ['diffie-hellman-group1-sha1', 'diffie-hellman-group14-sha1']
         Transport._preferred_ciphers = ('aes128-cbc', '3des-cbc', 'aes192-cbc', 'aes256-cbc')
 
-        # Establish SSH transport
+        # Create SSH transport session
         transport = Transport((ip, 22))
         transport.start_client(timeout=10)
         transport.auth_password(username, password)
 
-        # Check authentication success
+        # Verify authentication
         if not transport.is_authenticated():
             return f"[✗] SSH login failed for {ip} (invalid credentials?)"
 
-        # Open an interactive shell session
+        # Open interactive shell
         session = transport.open_session()
         session.get_pty()
         session.invoke_shell()
         time.sleep(1)
 
-        # Disable CLI paging
+        # Try to read welcome banner (if any)
+        try:
+            banner = session.recv(1024).decode("utf-8", errors="ignore")
+            if "Ctrl-Y" in banner or "Ctrl-Y to begin" in banner:
+                session.send("\x19\n")  # Attempt Ctrl+Y (usually doesn't work over SSH on ERS)
+                output.append("Sent: Ctrl+Y (SSH attempt)")
+                time.sleep(1)
+        except:
+            pass  # Safe to skip banner read if not supported
+
+        # Attempt to enter config mode (ERS may silently block this)
         session.send("disable clipaging\n")
         time.sleep(0.5)
 
-        # Send commands
         for line in config_lines:
             session.send(line + "\n")
             output.append(f"Sent: {line}")
@@ -98,9 +109,11 @@ def send_ssh(ip, config_lines, cooldown, username, password):
         session.send("save config\n")
         time.sleep(1)
         session.send("exit\n")
+
         transport.close()
 
         return "\n".join(output) + f"\n[✓] SSH config sent successfully to {ip}"
+
     except Exception as e:
         return f"[✗] SSH error for {ip}: {e}"
 

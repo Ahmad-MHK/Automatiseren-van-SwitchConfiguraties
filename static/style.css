@@ -61,3 +61,15 @@ footer {
     color: #718093;
     font-size: 14px;
 }
+
+#device-list {
+    max-height: 300px;
+    overflow-y: auto;
+    border: 1px solid #ccc;
+    padding: 8px;
+    margin-bottom: 10px;
+    background-color: #fff;
+}
+.device-entry {
+    margin: 4px 0;
+}
