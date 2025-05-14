@@ -1,5 +1,3 @@
-# app.py - Flask backend for pushing configuration to devices
-
 from flask import Flask, render_template, request, redirect, url_for
 import os, time, re
 import paramiko, telnetlib
@@ -8,8 +6,8 @@ app = Flask(__name__)
 
 # =================== Folder Configuration ===================
 app.config["UPLOAD_FOLDER"] = {
-    "devices": "Devices",  # Where device files are stored
-    "configs": "Config"      # Where config files are stored
+    "devices": "Devices",
+    "configs": "Config"
 }
 
 DEVICES_FOLDER = app.config["UPLOAD_FOLDER"]["devices"]
@@ -17,11 +15,9 @@ CONFIG_FOLDER = app.config["UPLOAD_FOLDER"]["configs"]
 
 # =================== Utility Functions ===================
 def slugify(text):
-    """Sanitize strings to be used as form-safe identifiers."""
     return re.sub(r'\W+', '_', text)
 
 def get_device_entries():
-    """Parse device files into structured dicts with IP, credentials, etc."""
     entries = []
     for file in os.listdir(DEVICES_FOLDER):
         path = os.path.join(DEVICES_FOLDER, file)
@@ -29,11 +25,17 @@ def get_device_entries():
             lines = [line.strip() for line in f if line.strip()]
             ip = lines[0]
             username = password = None
+            variables = {}
+
             for line in lines[1:]:
                 if line.lower().startswith("username:"):
                     username = line.split(":", 1)[1].strip()
                 elif line.lower().startswith("password:"):
                     password = line.split(":", 1)[1].strip()
+                elif "=" in line:
+                    k, v = line.split("=", 1)
+                    variables[f"_{k.strip()}_"] = v.strip()
+
             entries.append({
                 "id": f"{file} - {ip}",
                 "form_id": slugify(f"{file}_{ip}"),
@@ -42,12 +44,12 @@ def get_device_entries():
                 "username": username,
                 "password": password,
                 "has_password": bool(password),
-                "label": f"{ip} [{'password' if password else 'no password'}]"
+                "label": f"{ip} [{'password' if password else 'no password'}]",
+                "variables": variables
             })
     return entries
 
 def extract_device_vars(form, device_form_id):
-    """Extracts custom _key_ replacements for a specific device."""
     result = {}
     prefix = f"var_{device_form_id}_"
     for key in form:
@@ -73,70 +75,59 @@ def replace_config_vars(line, vars_dict):
 
 # =================== SSH / Telnet ===================
 def send_ssh(ip, config_lines, cooldown, username, password):
-    """Send config to device via SSH."""
+    import paramiko
     output = []
+
     try:
-        from paramiko.transport import Transport
-        Transport._preferred_kex = ['diffie-hellman-group1-sha1']
-        Transport._preferred_ciphers = ('aes128-cbc', '3des-cbc')
-        transport = Transport((ip, 22))
-        transport.start_client(timeout=10)
-        transport.auth_password(username, password)
+        ssh = paramiko.SSHClient()
+        ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+        ssh.connect(ip, username=username, password=password, timeout=10, look_for_keys=False)
 
-        if not transport.is_authenticated():
-            return f"[✗] SSH login failed for {ip}"
-
-        session = transport.open_session()
-        session.get_pty()
-        session.invoke_shell()
+        chan = ssh.invoke_shell()
         time.sleep(1)
+        banner = chan.recv(1024).decode("utf-8", errors="ignore")
 
-        try:
-            banner = session.recv(1024).decode("utf-8", errors="ignore")
-            if "Ctrl-Y" in banner or "Ctrl-Y to begin" in banner:
-                session.send("\x19\n")  # Ctrl+Y
-                output.append("Sent: Ctrl+Y (auto-detected in SSH)")
-                time.sleep(1)
-        except:
-            pass  # don't crash if banner is empty
+        if "Ctrl-Y" in banner or "Ctrl-Y to begin" in banner:
+            chan.send("\x19\n")
+            output.append("Sent: Ctrl+Y (auto-detected in SSH)")
+            time.sleep(1)
 
-
-        session.send("disable clipaging\n")
+        chan.send("disable clipaging\n")
         time.sleep(0.5)
+
         for line in config_lines:
-            session.send(line + "\n")
+            chan.send(line + "\n")
             output.append(f"Sent: {line}")
             time.sleep(cooldown)
-        session.send("save config\nexit\n")
-        transport.close()
+
+        chan.send("save config\n")
+        chan.send("exit\n")
+
+        ssh.close()
         return "\n".join(output) + f"\n[✓] SSH config sent to {ip}"
+
     except Exception as e:
         return f"[✗] SSH error for {ip}: {e}"
 
 def send_telnet(ip, config_lines, cooldown, username, password):
-    """Send config to device via Telnet."""
     output = []
     try:
         tn = telnetlib.Telnet(ip, timeout=10)
-
-        # Read initial banner and check for Ctrl+Y prompt
         try:
             banner = tn.read_until(b":", timeout=5)
-            if b"Ctrl-Y" in banner or b"Ctrl-Y to begin" in banner:
+            if b"Ctrl-Y" in banner:
                 tn.write(b"\x19\n")
                 output.append("Sent: Ctrl+Y (auto-detected in Telnet)")
                 time.sleep(1)
-        except Exception as e:
-            output.append(f"Banner read failed: {e}")
+        except:
+            pass
 
-        # Continue with login
         if username:
             tn.write(username.encode("ascii") + b"\n")
         if password:
             tn.read_until(b"Password:", timeout=5)
             tn.write(password.encode("ascii") + b"\n")
 
-        # Enter enable mode
         tn.write(b"enable\n")
         if password:
             tn.write(password.encode("ascii") + b"\n")
@@ -149,18 +140,15 @@ def send_telnet(ip, config_lines, cooldown, username, password):
             time.sleep(cooldown)
 
         tn.write(b"save config\nexit\n")
-        return "\n".join(output) + f"\n[✓] Telnet config sent to {ip}"
-
+        return "\n".join(output) + f"\n[\u2713] Telnet config sent to {ip}"
     except Exception as e:
-        return f"[✗] Telnet error for {ip}: {e}"
+        return f"[\u2717] Telnet error for {ip}: {e}"
 
 # =================== Routes ===================
 @app.route("/", methods=["GET", "POST"])
 def index():
     devices = get_device_entries()
     configs = load_config_files()
-    device_files = os.listdir(DEVICES_FOLDER)
-    config_files = os.listdir(CONFIG_FOLDER)
     result = ""
 
     if request.method == "POST" and "send_config" in request.form:
@@ -174,31 +162,37 @@ def index():
 
         results = []
         for device in selected_devices:
-            vars_for_device = extract_device_vars(request.form, device["form_id"])
-            replaced = [replace_config_vars(line, vars_for_device) for line in config_lines]
+            vars_for_device = device.get("variables", {}).copy()
+            form_vars = extract_device_vars(request.form, device["form_id"])
+            vars_for_device.update(form_vars)
+
+            replaced_lines = [replace_config_vars(line, vars_for_device) for line in config_lines]
+
+            file_path = os.path.join(DEVICES_FOLDER, device["file"])
+            with open(file_path, "w") as f:
+                f.write(device["ip"] + "\n")
+                if device["username"]:
+                    f.write(f"username:{device['username']}\n")
+                if device["password"]:
+                    f.write(f"password:{device['password']}\n")
+                for key, value in vars_for_device.items():
+                    stripped = key.strip("_")
+                    f.write(f"{stripped}={value}\n")
 
             if protocol == "ssh":
-                out = send_ssh(device["ip"], replaced, cooldown, device["username"], device["password"])
+                out = send_ssh(device["ip"], replaced_lines, cooldown, device["username"], device["password"])
             else:
-                out = send_telnet(device["ip"], replaced, cooldown, device["username"], device["password"])
+                out = send_telnet(device["ip"], replaced_lines, cooldown, device["username"], device["password"])
+
             results.append(f"{device['label']}\n{out}\n")
 
         result = "\n\n".join(results)
-
-        # Save log
         timestamp = time.strftime("%Y-%m-%d_%H-%M-%S")
         os.makedirs("logs", exist_ok=True)
         with open(f"logs/log_{timestamp}.txt", "w", encoding="utf-8") as f:
             f.write(result)
 
-    return render_template(
-            "index.html",
-            devices=devices,
-            configs=configs,
-            device_files=device_files,
-            config_files=config_files,
-            result=result
-        )
+    return render_template("index.html", devices=devices, configs=configs, result=result)
 
 @app.route("/upload", methods=["POST"])
 def upload_file():

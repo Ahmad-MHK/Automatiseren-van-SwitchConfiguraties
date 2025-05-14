@@ -37,19 +37,30 @@
                         <input type="checkbox" class="device-checkbox" name="devices" value="{{ device.id }}" data-form="{{ device.form_id }}">
                         {{ device.label }}
                     </label>
-
                     <div class="variable-fields" style="display: none;">
-                        <div class="var-pairs">
-                            <input type="text" name="var_{{ device.form_id }}_0_key" placeholder="Variable name">
-                            <input type="text" name="var_{{ device.form_id }}_0_value" placeholder="Value">
+                        <div class="variable-row">
+                            <div class="var-pairs">
+                                {% set var_items = device.variables.items() if device.variables else [] %}
+                                {% for k, v in device.variables.items() %}
+                                    <div class="var-pairs">
+                                        <input type="text" name="var_{{ device.form_id }}_{{ loop.index0 }}_key" value="{{ k.strip('_') }}" placeholder="Variable name">
+                                        <input type="text" name="var_{{ device.form_id }}_{{ loop.index0 }}_value" value="{{ v }}" placeholder="Value">
+                                    </div>
+                                {% endfor %}
+                                {% if not var_items %}
+                                    <div class="var-pair-row" style="display: flex; gap: 10px; margin-top: 4px;">
+                                        <input type="text" name="var_{{ device.form_id }}_0_key" placeholder="Variable name">
+                                        <input type="text" name="var_{{ device.form_id }}_0_value" placeholder="Value">
+                                    </div>
+                                {% endif %}
+                            </div>
+                            <button type="button" class="add-var-btn" data-device="{{ device.form_id }}">+ Add Variable</button>
                         </div>
-                        <button type="button" class="add-var-btn" data-device="{{ device.form_id }}">+ Add Variable</button>
                     </div>
                 </div>
             </div>
             {% endfor %}
         </div>
-
 
         <!-- Configuration file and protocol selection -->
         <label>Select Config File:</label>
@@ -92,6 +103,15 @@
         </select>
         <button type="submit">Upload</button>
     </form>
+
+    <form method="POST" action="/create-device">
+        <h2>Create New Device Entry</h2>
+        <input type="text" name="ip" placeholder="IP Address" required>
+        <input type="text" name="username" placeholder="Username (optional)">
+        <input type="text" name="password" placeholder="Password (optional)">
+        <button type="submit">Create Device File</button>
+    </form>
+
 
     <!-- File deletion form -->
     <form method="POST" action="/delete">

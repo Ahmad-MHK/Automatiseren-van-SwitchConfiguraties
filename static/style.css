@@ -76,10 +76,31 @@ footer {
 }
 
 .variable-fields {
-    display: none;
-    flex-grow: 1;
+    display: flex;
+    flex-direction: column;
 }
 
+.variable-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+
+.var-pairs {
+    display: flex;
+    gap: 6px;
+    margin-bottom: 4px;
+}
+
+
+.var-pairs input {
+    width: 140px;
+}
+
+.var-pairs input[type="text"] {
+    width: 140px;
+}
 
 .var-pairs input[type="text"] {
     width: 140px;
@@ -91,8 +112,6 @@ footer {
     display: flex;
     align-items: flex-start;
     gap: 20px;
-    flex-wrap: wrap; /* allows wrapping on smaller screens */
-    padding: 4px 0;
 }
 
 #delete-file-selects select {
