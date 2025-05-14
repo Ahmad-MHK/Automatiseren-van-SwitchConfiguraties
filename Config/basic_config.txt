@@ -1,5 +1,5 @@
 configure terminal
-interface ethernet 1/1
-description TEST-CONFIG-FROM-SCRIPT
+interface ethernet test
+description Variable2
 exit
 exit
