@@ -1,0 +1,23 @@
+192.168.1.1 [no password]
+Sent: Ctrl+Y (auto-detected in Telnet)
+Sent: enable
+Sent: configure terminal
+Sent: vlan create 2002 name "Customer_2" type port
+Sent: vlan members remove 2002 1-50
+Sent: vlan members add 2002 1-12,
+Sent: vlan create 2003 name "Customer_3" type port
+Sent: vlan members remove 2003 1-50
+Sent: vlan members add 2003 1-12,
+Sent: vlan create 2004 name "Customer_4" type port
+Sent: vlan members remove 2004 1-50
+Sent: vlan members add 2004 1-12,
+Sent: vlan create 2005 name "Customer_5" type port
+Sent: vlan members remove 2005 1-50
+Sent: vlan members add 2005 1-12,
+Sent: vlan create 2006 name "Customer_6" type port
+Sent: vlan members remove 2006 1-50
+Sent: vlan members add 2006 1-12,
+Sent: vlan create 2007 name "Customer_7" type port
+Sent: vlan members remove 2007 1-50
+Sent: vlan members add 2007 1-12,
+[✓] Telnet config sent to 192.168.1.1

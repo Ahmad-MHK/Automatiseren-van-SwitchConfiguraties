@@ -1,4 +1,0 @@
-_var1_
-configure terminal
-snmp-server disable
-exit

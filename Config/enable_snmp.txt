@@ -1,5 +1,0 @@
- \x19  # Ctrl+Y
-_test_
-configure terminal
-snmp-server enable
-exit

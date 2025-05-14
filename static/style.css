@@ -70,6 +70,48 @@ footer {
     margin-bottom: 10px;
     background-color: #fff;
 }
+
 .device-entry {
-    margin: 4px 0;
+    margin: 6px 0;
+}
+
+.variable-fields {
+    display: none;
+    flex-grow: 1;
+}
+
+
+.var-pairs input[type="text"] {
+    width: 140px;
+    margin-right: 6px;
+    margin-bottom: 6px;
+}
+
+.device-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 20px;
+    flex-wrap: wrap; /* allows wrapping on smaller screens */
+    padding: 4px 0;
+}
+
+#delete-file-selects select {
+    margin-top: 10px;
+    margin-bottom: 10px;
+    width: 250px;
+}
+
+.view-logs-btn {
+    background-color: #0056b3;
+    color: white;
+    padding: 8px 14px;
+    border-radius: 6px;
+    text-decoration: none;
+    font-weight: bold;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    transition: background-color 0.2s ease;
+}
+
+.view-logs-btn:hover {
+    background-color: #004494;
 }

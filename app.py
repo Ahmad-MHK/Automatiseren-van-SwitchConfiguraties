@@ -91,6 +91,16 @@ def send_ssh(ip, config_lines, cooldown, username, password):
         session.invoke_shell()
         time.sleep(1)
 
+        try:
+            banner = session.recv(1024).decode("utf-8", errors="ignore")
+            if "Ctrl-Y" in banner or "Ctrl-Y to begin" in banner:
+                session.send("\x19\n")  # Ctrl+Y
+                output.append("Sent: Ctrl+Y (auto-detected in SSH)")
+                time.sleep(1)
+        except:
+            pass  # don't crash if banner is empty
+
+
         session.send("disable clipaging\n")
         time.sleep(0.5)
         for line in config_lines:
@@ -108,13 +118,25 @@ def send_telnet(ip, config_lines, cooldown, username, password):
     output = []
     try:
         tn = telnetlib.Telnet(ip, timeout=10)
-        tn.read_until(b":", timeout=5)
+
+        # Read initial banner and check for Ctrl+Y prompt
+        try:
+            banner = tn.read_until(b":", timeout=5)
+            if b"Ctrl-Y" in banner or b"Ctrl-Y to begin" in banner:
+                tn.write(b"\x19\n")
+                output.append("Sent: Ctrl+Y (auto-detected in Telnet)")
+                time.sleep(1)
+        except Exception as e:
+            output.append(f"Banner read failed: {e}")
+
+        # Continue with login
         if username:
             tn.write(username.encode("ascii") + b"\n")
         if password:
             tn.read_until(b"Password:", timeout=5)
             tn.write(password.encode("ascii") + b"\n")
 
+        # Enter enable mode
         tn.write(b"enable\n")
         if password:
             tn.write(password.encode("ascii") + b"\n")
@@ -128,6 +150,7 @@ def send_telnet(ip, config_lines, cooldown, username, password):
 
         tn.write(b"save config\nexit\n")
         return "\n".join(output) + f"\n[✓] Telnet config sent to {ip}"
+
     except Exception as e:
         return f"[✗] Telnet error for {ip}: {e}"
 
@@ -136,6 +159,8 @@ def send_telnet(ip, config_lines, cooldown, username, password):
 def index():
     devices = get_device_entries()
     configs = load_config_files()
+    device_files = os.listdir(DEVICES_FOLDER)
+    config_files = os.listdir(CONFIG_FOLDER)
     result = ""
 
     if request.method == "POST" and "send_config" in request.form:
@@ -166,7 +191,14 @@ def index():
         with open(f"logs/log_{timestamp}.txt", "w", encoding="utf-8") as f:
             f.write(result)
 
-    return render_template("index.html", devices=devices, configs=configs, result=result)
+    return render_template(
+            "index.html",
+            devices=devices,
+            configs=configs,
+            device_files=device_files,
+            config_files=config_files,
+            result=result
+        )
 
 @app.route("/upload", methods=["POST"])
 def upload_file():

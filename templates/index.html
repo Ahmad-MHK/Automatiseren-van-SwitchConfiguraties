@@ -13,7 +13,7 @@
             <img src="{{ url_for('static', filename='Com1-Oranje.png') }}" alt="Logo">
         </div>
         <h1>Push Config to Switch</h1>
-        <a href="{{ url_for('show_logs') }}" class="btn">View Logs</a>
+        <a href="{{ url_for('show_logs') }}" class="btn view-logs-btn">📄 View Logs</a>
     </header>
 
     <!-- Main Form for sending config -->
@@ -32,20 +32,24 @@
         <div id="device-list">
             {% for device in devices %}
             <div class="device-entry" data-ip="{{ device.ip }}" data-password="{{ 'yes' if device.has_password else 'no' }}">
-                <label>
-                    <input type="checkbox" class="device-checkbox" name="devices" value="{{ device.id }}" data-form="{{ device.form_id }}">
-                    {{ device.label }}
-                </label>
-                <div class="variable-fields" style="display: none; margin-left: 20px; margin-top: 5px;">
-                    <div class="var-pairs">
-                        <input type="text" name="var_{{ device.form_id }}_0_key" placeholder="Variable name" style="width: 150px;">
-                        <input type="text" name="var_{{ device.form_id }}_0_value" placeholder="Value" style="width: 150px;">
+                <div class="device-row">
+                    <label>
+                        <input type="checkbox" class="device-checkbox" name="devices" value="{{ device.id }}" data-form="{{ device.form_id }}">
+                        {{ device.label }}
+                    </label>
+
+                    <div class="variable-fields" style="display: none;">
+                        <div class="var-pairs">
+                            <input type="text" name="var_{{ device.form_id }}_0_key" placeholder="Variable name">
+                            <input type="text" name="var_{{ device.form_id }}_0_value" placeholder="Value">
+                        </div>
+                        <button type="button" class="add-var-btn" data-device="{{ device.form_id }}">+ Add Variable</button>
                     </div>
-                    <button type="button" class="add-var-btn" data-device="{{ device.form_id }}">+ Add Variable</button>
                 </div>
             </div>
             {% endfor %}
         </div>
+
 
         <!-- Configuration file and protocol selection -->
         <label>Select Config File:</label>
@@ -96,7 +100,20 @@
             <option value="devices">Device</option>
             <option value="configs">Config</option>
         </select>
-        <input type="text" name="filename" placeholder="Exact filename" required>
+    <!-- Dropdowns appear based on selected type -->
+        <div id="delete-file-selects">
+            <select id="delete-device-select" name="filename" style="display:none;">
+                {% for f in device_files %}
+                    <option value="{{ f }}">{{ f }}</option>
+                {% endfor %}
+            </select>
+
+            <select id="delete-config-select" name="filename" style="display:none;">
+                {% for f in config_files %}
+                    <option value="{{ f }}">{{ f }}</option>
+                {% endfor %}
+            </select>
+        </div>        
         <button type="submit">Delete</button>
     </form>
 
@@ -105,13 +122,13 @@
         <h2>Device File Format</h2>
         <label>With password:</label>
         <pre>
-192.168.1.1
-username:admin
-password:secret
+            192.168.1.1
+            username:admin
+            password:secret
         </pre>
         <label>Without password:</label>
         <pre>
-192.168.1.1
+            192.168.1.1
         </pre>
     </form>
 
@@ -143,6 +160,21 @@ password:secret
                 }
             });
         }
+
+        // File deletion based on selected type
+        const filetypeSelect = document.querySelector("select[name='filetype']");
+        const deviceSelect = document.getElementById("delete-device-select");
+        const configSelect = document.getElementById("delete-config-select");
+
+        function updateVisibleSelect() {
+            const type = filetypeSelect.value;
+            deviceSelect.style.display = (type === "devices") ? "inline-block" : "none";
+            configSelect.style.display = (type === "configs") ? "inline-block" : "none";
+        }
+
+        filetypeSelect.addEventListener("change", updateVisibleSelect);
+        updateVisibleSelect();
+
 
         // Filtering events
         $("#device-search").on("input", filterDevices);
@@ -179,6 +211,8 @@ password:secret
                 </div>`;
             $(this).before(newRow);
         });
+
+
     });
     </script>
 </body>

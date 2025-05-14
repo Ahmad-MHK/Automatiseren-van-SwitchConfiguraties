@@ -1,0 +1,26 @@
+enable
+configure terminal
+vlan create 2002 name "Customer_2" type port 
+vlan members remove 2002 1-50
+vlan members add 2002 1-12,
+
+vlan create 2003 name "Customer_3" type port 
+vlan members remove 2003 1-50
+vlan members add 2003 1-12,
+
+vlan create 2004 name "Customer_4" type port 
+vlan members remove 2004 1-50
+vlan members add 2004 1-12,
+
+vlan create 2005 name "Customer_5" type port 
+vlan members remove 2005 1-50
+vlan members add 2005 1-12,
+
+vlan create 2006 name "Customer_6" type port 
+vlan members remove 2006 1-50
+vlan members add 2006 1-12,
+
+vlan create 2007 name "Customer_7" type port 
+vlan members remove 2007 1-50
+vlan members add 2007 1-12,
+

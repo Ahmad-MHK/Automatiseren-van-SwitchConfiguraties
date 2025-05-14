@@ -1,3 +1,4 @@
+_var1_
 configure terminal
 interface ethernet test
 description Variable2
