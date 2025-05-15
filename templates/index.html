@@ -172,15 +172,6 @@
         </pre>
     </form>
 
-    <!-- Debug -->
-    <pre>
-    Device Files:
-    {{ device_files }}
-
-    Config Files:
-    {{ config_files }}
-    </pre>
-
     <footer>
         Made by Ahmad Mahouk
     </footer>
@@ -306,7 +297,7 @@
                     return $(this).val().trim();
                 }).get();
 
-                if (existingVars.includes(varName)) return;
+                if (existingVars.map(v => v.toLowerCase()).includes(varName.toLowerCase())) return;
 
                 const index = container.find(".var-pairs").length;
 
