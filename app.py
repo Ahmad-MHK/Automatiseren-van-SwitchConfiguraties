@@ -1,8 +1,10 @@
-from flask import Flask, render_template, request, redirect, url_for
+from flask import Flask, render_template, request, redirect, url_for, flash
 import os, time, re
 import paramiko, telnetlib
+from werkzeug.utils import secure_filename
 
 app = Flask(__name__)
+app.secret_key = "something-secret"  # Needed for flash messaging
 
 # =================== Folder Configuration ===================
 app.config["UPLOAD_FOLDER"] = {
@@ -75,9 +77,7 @@ def replace_config_vars(line, vars_dict):
 
 # =================== SSH / Telnet ===================
 def send_ssh(ip, config_lines, cooldown, username, password):
-    import paramiko
     output = []
-
     try:
         ssh = paramiko.SSHClient()
         ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
@@ -102,7 +102,6 @@ def send_ssh(ip, config_lines, cooldown, username, password):
 
         chan.send("save config\n")
         chan.send("exit\n")
-
         ssh.close()
         return "\n".join(output) + f"\n[✓] SSH config sent to {ip}"
 
@@ -140,9 +139,9 @@ def send_telnet(ip, config_lines, cooldown, username, password):
             time.sleep(cooldown)
 
         tn.write(b"save config\nexit\n")
-        return "\n".join(output) + f"\n[\u2713] Telnet config sent to {ip}"
+        return "\n".join(output) + f"\n[✓] Telnet config sent to {ip}"
     except Exception as e:
-        return f"[\u2717] Telnet error for {ip}: {e}"
+        return f"[✗] Telnet error for {ip}: {e}"
 
 # =================== Routes ===================
 @app.route("/", methods=["GET", "POST"])
@@ -150,6 +149,9 @@ def index():
     devices = get_device_entries()
     configs = load_config_files()
     result = ""
+
+    device_files = os.listdir(DEVICES_FOLDER)
+    config_files = os.listdir(CONFIG_FOLDER)
 
     if request.method == "POST" and "send_config" in request.form:
         selected_ids = request.form.getlist("devices")
@@ -192,7 +194,12 @@ def index():
         with open(f"logs/log_{timestamp}.txt", "w", encoding="utf-8") as f:
             f.write(result)
 
-    return render_template("index.html", devices=devices, configs=configs, result=result)
+    return render_template("index.html",
+                           devices=devices,
+                           configs=configs,
+                           result=result,
+                           device_files=device_files,
+                           config_files=config_files)
 
 @app.route("/upload", methods=["POST"])
 def upload_file():
@@ -201,15 +208,24 @@ def upload_file():
     if file and filetype in app.config["UPLOAD_FOLDER"]:
         path = os.path.join(app.config["UPLOAD_FOLDER"][filetype], file.filename)
         file.save(path)
+        flash(f"{file.filename} uploaded to {filetype}.")
     return redirect(url_for("index"))
 
 @app.route("/delete", methods=["POST"])
 def delete_file():
-    filename = request.form["filename"]
+    filename = secure_filename(request.form["filename"])
     filetype = request.form["filetype"]
-    path = os.path.join(app.config["UPLOAD_FOLDER"][filetype], filename)
-    if os.path.exists(path):
-        os.remove(path)
+    folder = app.config["UPLOAD_FOLDER"].get(filetype)
+
+    if folder:
+        path = os.path.join(folder, filename)
+        if os.path.exists(path):
+            os.remove(path)
+            flash(f"{filename} deleted from {filetype}.")
+        else:
+            flash(f"{filename} not found.")
+    else:
+        flash("Invalid file type.")
     return redirect(url_for("index"))
 
 @app.route("/logs")
@@ -222,6 +238,27 @@ def show_logs():
 def test_send():
     result = send_telnet("192.168.1.1", ["enable", "conf t", "exit"], 0.5, None, None)
     return render_template("index.html", devices=get_device_entries(), configs=load_config_files(), result="(TEST)\n" + result)
+
+@app.route("/edit-config", methods=["GET", "POST"])
+def edit_config():
+    configs = load_config_files()
+    selected = request.args.get("filename") or request.form.get("filename")
+    content = ""
+
+    if request.method == "POST" and selected:
+        updated = request.form["content"]
+        with open(os.path.join(CONFIG_FOLDER, selected), "w", encoding="utf-8") as f:
+            f.write(updated)
+        flash(f"{selected} updated successfully.")
+        return redirect(url_for("edit_config", filename=selected))
+
+    if selected:
+        config_path = os.path.join(CONFIG_FOLDER, selected)
+        if os.path.exists(config_path):
+            with open(config_path, "r", encoding="utf-8") as f:
+                content = f.read()
+
+    return render_template("edit_config.html", configs=configs, selected=selected, content=content)
 
 if __name__ == "__main__":
     app.run(debug=True)
