@@ -1,9 +1,0 @@
-192.168.1.1 [no password]
-Sent: Ctrl+Y (auto-detected in Telnet)
-Sent: enable
-Sent: configure terminal
-Sent: interface ethernet test
-Sent: description coke
-Sent: exit
-Sent: exit
-[✓] Telnet config sent to 192.168.1.1

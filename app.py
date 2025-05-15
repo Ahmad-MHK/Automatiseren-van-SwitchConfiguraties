@@ -164,9 +164,8 @@ def index():
 
         results = []
         for device in selected_devices:
-            vars_for_device = device.get("variables", {}).copy()
-            form_vars = extract_device_vars(request.form, device["form_id"])
-            vars_for_device.update(form_vars)
+            vars_for_device = extract_device_vars(request.form, device["form_id"])
+
 
             replaced_lines = [replace_config_vars(line, vars_for_device) for line in config_lines]
 
@@ -234,10 +233,65 @@ def show_logs():
     logs = [(f, open(os.path.join("logs", f)).read()) for f in files]
     return render_template("logs.html", logs=logs)
 
+@app.route("/create-device", methods=["POST"])
+def create_device():
+    ip = request.form["ip"].strip()
+    username = request.form.get("username", "").strip()
+    password = request.form.get("password", "").strip()
+
+    if not ip:
+        return redirect(url_for("index"))
+
+    lines = [ip]
+    if username:
+        lines.append(f"username:{username}")
+    if password:
+        lines.append(f"password:{password}")
+
+    filepath = os.path.join(DEVICES_FOLDER, f"{ip}.txt")
+    with open(filepath, "w") as f:
+        f.write("\n".join(lines))
+
+    return redirect(url_for("index"))
+
 @app.route("/test-send", methods=["POST"])
 def test_send():
-    result = send_telnet("192.168.1.1", ["enable", "conf t", "exit"], 0.5, None, None)
-    return render_template("index.html", devices=get_device_entries(), configs=load_config_files(), result="(TEST)\n" + result)
+    devices = get_device_entries()
+    configs = load_config_files()
+    result_lines = []
+
+    selected_ids = request.form.getlist("devices")
+    config_file = request.form.get("config")
+    protocol = request.form.get("protocol", "telnet")
+    cooldown = float(request.form.get("cooldown", 1000)) / 1000.0
+
+    selected_devices = [d for d in devices if d["id"] in selected_ids]
+
+    if not selected_devices:
+        return render_template("index.html", devices=devices, configs=configs, result="(TEST) No device selected.", device_files=os.listdir(DEVICES_FOLDER), config_files=os.listdir(CONFIG_FOLDER))
+    if not config_file:
+        return render_template("index.html", devices=devices, configs=configs, result="(TEST) No config selected.", device_files=os.listdir(DEVICES_FOLDER), config_files=os.listdir(CONFIG_FOLDER))
+
+    config_lines = load_config(config_file)
+
+    for device in selected_devices:
+        vars_for_device = device.get("variables", {})
+        replaced_lines = [replace_config_vars(line, vars_for_device) for line in config_lines]
+
+        if protocol == "ssh":
+            output = send_ssh(device["ip"], replaced_lines, cooldown, device["username"], device["password"])
+        else:
+            output = send_telnet(device["ip"], replaced_lines, cooldown, device["username"], device["password"])
+
+        result_lines.append(f"(TEST) {device['label']} with config: {config_file}\n{output}")
+
+    return render_template("index.html",
+                           devices=devices,
+                           configs=configs,
+                           result="\n\n".join(result_lines),
+                           device_files=os.listdir(DEVICES_FOLDER),
+                           config_files=os.listdir(CONFIG_FOLDER))
+
 
 @app.route("/edit-config", methods=["GET", "POST"])
 def edit_config():
@@ -259,6 +313,40 @@ def edit_config():
                 content = f.read()
 
     return render_template("edit_config.html", configs=configs, selected=selected, content=content)
+
+@app.route("/save-vars", methods=["POST"])
+def save_variables():
+    devices = get_device_entries()
+    selected_ids = request.form.getlist("devices")
+
+    if not selected_ids:
+        flash("No devices selected to save variables for.")
+        return redirect(url_for("index"))
+
+    for device in devices:
+        if device["id"] not in selected_ids:
+            continue
+
+        # Extract variables from form for this device
+        vars_for_device = extract_device_vars(request.form, device["form_id"])
+
+        # Reconstruct the device file contents
+        lines = [device["ip"]]
+        if device["username"]:
+            lines.append(f"username:{device['username']}")
+        if device["password"]:
+            lines.append(f"password:{device['password']}")
+        for key, value in vars_for_device.items():
+            stripped = key.strip("_")
+            lines.append(f"{stripped}={value}")
+
+        # Save to file
+        file_path = os.path.join(DEVICES_FOLDER, device["file"])
+        with open(file_path, "w", encoding="utf-8") as f:
+            f.write("\n".join(lines))
+
+    flash("Variables saved successfully for selected devices.")
+    return redirect(url_for("index"))
 
 if __name__ == "__main__":
     app.run(debug=True)
