@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>How to Use the Tool</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <header>
+        <div>
+            <img src="{{ url_for('static', filename='Com1-Oranje.png') }}" alt="Logo">
+        </div>
+        <h1>User Guide: Switch Config Tool</h1>
+        <a href="{{ url_for('index') }}" class="view-logs-btn">⬅ Back to Dashboard</a>
+    </header>
+
+    <main>
+        <section>
+            <h2>📥 Upload Devices and Configs</h2>
+            <ul>
+                <li>Go to the bottom of the dashboard.</li>
+                <li>Choose a file (either a device file or config file).</li>
+                <li>Select the correct type and click **Upload**.</li>
+                <li>Device file format:
+                    <pre>
+192.168.1.1
+username:admin
+password:secret</pre>
+                </li>
+            </ul>
+        </section>
+
+        <section>
+            <h2>🛠️ Configure Devices</h2>
+            <ul>
+                <li>Use the search box to filter devices by IP.</li>
+                <li>Check the boxes to select one or more devices.</li>
+                <li>Use filters to show only devices with or without passwords.</li>
+                <li>Click **"Add to Selected"** to insert a variable (e.g., `_hostname_ = Switch1`).</li>
+            </ul>
+        </section>
+
+        <section>
+            <h2>📤 Send Configuration</h2>
+            <ul>
+                <li>Select a config file and protocol (SSH or Telnet).</li>
+                <li>Set a cooldown delay (in ms) between commands (e.g., 1000).</li>
+                <li>Click **Send Config** to apply it.</li>
+                <li>Or click **Test Send Config** to simulate the process without changes.</li>
+                <li>Use **Save Variables Only** to store variables without pushing configs.</li>
+            </ul>
+        </section>
+
+        <section>
+            <h2>📁 Edit or Delete Files</h2>
+            <ul>
+                <li>Click **Edit Config Files** in the header to modify config contents.</li>
+                <li>Use the **Delete Files** section to remove device or config files.</li>
+            </ul>
+        </section>
+
+        <section>
+            <h2>📜 View Logs</h2>
+            <ul>
+                <li>Click **📄 View Logs** to see logs of previous sends.</li>
+                <li>Logs are timestamped and saved in the `logs/` folder.</li>
+            </ul>
+        </section>
+
+        <section>
+            <h2>❓ Tips</h2>
+            <ul>
+                <li>Variable names must be wrapped with underscores in config files (e.g., `_hostname_`).</li>
+                <li>Variables are substituted per-device before being sent.</li>
+                <li>You can save device-specific variables even if you don’t send the config yet.</
