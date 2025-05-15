@@ -276,6 +276,7 @@
                     <input type="text" name="var_${deviceId}_${index}_value" placeholder="Value" style="width: 150px;">
                     <button type="button" class="remove-var-btn">-</button>
                 </div>`;
+                entry.find(".variable-fields").show();
             $(this).siblings(".var-pairs").last().parent().append(newRow);
         });
 

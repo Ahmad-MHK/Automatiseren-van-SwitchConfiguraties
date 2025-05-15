@@ -2,11 +2,13 @@ from flask import Flask, render_template, request, redirect, url_for, flash
 import os, time, re
 import paramiko, telnetlib
 from werkzeug.utils import secure_filename
+import socket
+from paramiko.transport import Transport
 
 app = Flask(__name__)
-app.secret_key = "something-secret"  # Needed for flash messaging
+app.secret_key = "something-secret"
+paramiko.common.logging.basicConfig(level=paramiko.common.DEBUG)
 
-# =================== Folder Configuration ===================
 app.config["UPLOAD_FOLDER"] = {
     "devices": "Devices",
     "configs": "Config"
@@ -15,7 +17,6 @@ app.config["UPLOAD_FOLDER"] = {
 DEVICES_FOLDER = app.config["UPLOAD_FOLDER"]["devices"]
 CONFIG_FOLDER = app.config["UPLOAD_FOLDER"]["configs"]
 
-# =================== Utility Functions ===================
 def slugify(text):
     return re.sub(r'\W+', '_', text)
 
@@ -75,88 +76,37 @@ def replace_config_vars(line, vars_dict):
         line = line.replace(key, val)
     return line
 
-# =================== SSH / Telnet ===================
 def send_ssh(ip, config_lines, cooldown, username, password):
-    """
-    Tries modern SSHClient first. Falls back to Transport if socket issues occur.
-    """
-    try:
-        return send_ssh_modern(ip, config_lines, cooldown, username, password)
-    except Exception as e:
-        if "Socket is closed" in str(e) or "EOF" in str(e):
-            # Fallback for ERS or incompatible switches
-            return send_ssh_legacy(ip, config_lines, cooldown, username, password)
-        else:
-            return f"[✗] SSH error for {ip} (modern): {e}"
-
-
-def send_ssh_modern(ip, config_lines, cooldown, username, password):
     output = []
     try:
-        ssh = paramiko.SSHClient()
-        ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-        ssh.connect(ip, username=username, password=password, timeout=10, look_for_keys=False)
+        # Set compatible (legacy) algorithms
+        Transport._preferred_kex = ['diffie-hellman-group14-sha1', 'diffie-hellman-group1-sha1']
+        Transport._preferred_keys = ['ssh-rsa']
+        Transport._preferred_macs = ['hmac-sha1', 'hmac-sha1-96', 'hmac-md5', 'hmac-md5-96']
+        Transport._preferred_ciphers = ['aes128-cbc', '3des-cbc', 'aes192-cbc', 'aes256-cbc']
 
-        chan = ssh.invoke_shell()
-        time.sleep(1)
-        banner = chan.recv(1024).decode("utf-8", errors="ignore")
+        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        sock.settimeout(10)
+        sock.connect((ip, 22))
 
-        if "Ctrl-Y" in banner or "Ctrl-Y to begin" in banner:
-            chan.send("\x19\n")
-            output.append("Sent: Ctrl+Y (auto-detected in SSH)")
-            time.sleep(1)
-
-        chan.send("disable clipaging\n")
-        time.sleep(0.5)
-
-        for line in config_lines:
-            chan.send(line + "\n")
-            output.append(f"Sent: {line}")
-            time.sleep(cooldown)
-
-        chan.send("save config\n")
-        chan.send("exit\n")
-        ssh.close()
-        return "\n".join(output) + f"\n[✓] SSH config sent to {ip}"
-
-    except Exception as e:
-        raise e  # Let the wrapper handle this
-
-def send_ssh_legacy(ip, config_lines, cooldown, username, password):
-    output = []
-    try:
-        from paramiko.transport import Transport
-
-        # Enable support for legacy encryption for ERS devices
-        Transport._preferred_kex = ['diffie-hellman-group1-sha1', 'diffie-hellman-group14-sha1']
-        Transport._preferred_ciphers = ('aes128-cbc', '3des-cbc', 'aes192-cbc', 'aes256-cbc')
-
-        # Create SSH transport session
-        transport = Transport((ip, 22))
-        transport.start_client(timeout=10)
+        transport = Transport(sock)
+        transport.start_client()
         transport.auth_password(username, password)
 
-        # Verify authentication
         if not transport.is_authenticated():
-            return f"[✗] SSH login failed for {ip} (invalid credentials?)"
+            return f"[x] Legacy SSH login failed for {ip}"
 
-        # Open interactive shell
         session = transport.open_session()
         session.get_pty()
         session.invoke_shell()
+
         time.sleep(1)
+        banner = session.recv(1024).decode("utf-8", errors="ignore")
+        if "Ctrl-Y" in banner:
+            session.send("\x19\n")
+            output.append("Sent: Ctrl+Y (legacy SSH)")
+            time.sleep(1)
 
-        # Try to read welcome banner (if any)
-        try:
-            banner = session.recv(1024).decode("utf-8", errors="ignore")
-            if "Ctrl-Y" in banner or "Ctrl-Y to begin" in banner:
-                session.send("\x19\n")
-                output.append("Sent: Ctrl+Y (SSH attempt)")
-                time.sleep(1)
-        except:
-            pass # Safe to skip banner read if not supported
-
-        # Attempt to enter config mode (ERS may silently block this)
         session.send("disable clipaging\n")
         time.sleep(0.5)
 
@@ -166,16 +116,16 @@ def send_ssh_legacy(ip, config_lines, cooldown, username, password):
             time.sleep(cooldown)
 
         session.send("save config\n")
-        time.sleep(1)
         session.send("exit\n")
 
+        session.close()
         transport.close()
+        sock.close()
 
-        return "\n".join(output) + f"\n[+] SSH config sent (legacy) to {ip}"
+        return "\n".join(output) + f"\n[✓] SSH config sent (legacy) to {ip}"
 
     except Exception as e:
-        return f"[X] SSH error for {ip} (legacy): {e}"
-
+        return f"[x] SSH legacy transport failed: {e}"
 
 def send_telnet(ip, config_lines, cooldown, username, password):
     output = []
