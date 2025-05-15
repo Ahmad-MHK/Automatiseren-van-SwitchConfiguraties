@@ -1,0 +1,4 @@
+192.168.1.1
+var1=enable
+Variable2=Daan is monkey
+var33=

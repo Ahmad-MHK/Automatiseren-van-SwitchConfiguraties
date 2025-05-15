@@ -1,6 +1,6 @@
 _var1_
 configure terminal
 interface ethernet test
-description Variable2
+description _Variable2_
 exit
 exit

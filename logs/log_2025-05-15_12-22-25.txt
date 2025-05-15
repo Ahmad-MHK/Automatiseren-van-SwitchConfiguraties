@@ -1,0 +1,2 @@
+192.168.1.1 [no password]
+[✗] SSH error for 192.168.1.1: No authentication methods available

@@ -1,3 +1,5 @@
+/* ========== Base Layout and Typography ========== */
+
 body {
     font-family: Arial, sans-serif;
     background-color: #f5f6fa;
@@ -6,8 +8,15 @@ body {
     padding: 0 20px;
 }
 
+h1 {
+    margin: 0;
+    font-size: 24px;
+}
+
+/* ========== Header ========== */
+
 header {
-    background-color: #273c75;
+    background-color: #1b284b;
     color: white;
     padding: 15px 20px;
     display: flex;
@@ -19,10 +28,7 @@ header img {
     height: 40px;
 }
 
-h1 {
-    margin: 0;
-    font-size: 24px;
-}
+/* ========== Forms ========== */
 
 form {
     background-color: #fff;
@@ -31,6 +37,8 @@ form {
     border: 1px solid #dcdde1;
     border-radius: 8px;
 }
+
+/* ========== Buttons ========== */
 
 button {
     background-color: #44bd32;
@@ -46,7 +54,40 @@ button:hover {
     background-color: #4cd137;
 }
 
-select, input[type="text"], input[type="number"], input[type="file"] {
+/* Add Variable Button */
+.add-var-btn {
+    background-color: #44bd32 !important;
+    padding: 6px 10px !important;
+    font-size: 16px !important;
+    height: 34px !important;
+}
+
+.add-var-btn:hover {
+    background-color: #4cd137 !important;
+}
+
+/* Variable Remove Button */
+.var-pairs button {
+    background-color: #e84118;
+    padding: 6px 10px;
+    border-radius: 4px;
+    font-weight: bold;
+    font-size: 16px;
+    line-height: 1;
+    margin: 0;
+    height: 34px;
+}
+
+.var-pairs button:hover {
+    background-color: #c23616;
+}
+
+/* ========== Inputs and Selects ========== */
+
+select,
+input[type="text"],
+input[type="number"],
+input[type="file"] {
     width: 100%;
     padding: 6px;
     margin-top: 4px;
@@ -55,6 +96,25 @@ select, input[type="text"], input[type="number"], input[type="file"] {
     border-radius: 4px;
 }
 
+/* Inputs inside variable row */
+.var-pairs input[type="text"] {
+    padding: 6px 8px;
+    font-size: 14px;
+    border: 1px solid #ced6e0;
+    border-radius: 5px;
+    width: 160px;
+    background-color: #f9f9f9;
+    transition: border-color 0.2s;
+}
+
+.var-pairs input[type="text"]:focus {
+    border-color: #44bd32;
+    outline: none;
+    background-color: #ffffff;
+}
+
+/* ========== Footer ========== */
+
 footer {
     text-align: center;
     margin: 40px 0 10px;
@@ -62,8 +122,10 @@ footer {
     font-size: 14px;
 }
 
+/* ========== Device List and Layout ========== */
+
 #device-list {
-    max-height: 300px;
+    max-height: fit-content;
     overflow-y: auto;
     border: 1px solid #ccc;
     padding: 8px;
@@ -73,33 +135,75 @@ footer {
 
 .device-entry {
     margin: 6px 0;
-}
-
-.variable-fields {
-    display: none;
-    flex-grow: 1;
-}
-
-
-.var-pairs input[type="text"] {
-    width: 140px;
-    margin-right: 6px;
-    margin-bottom: 6px;
+    padding: 10px;
+    border-radius: 8px;
+    background-color: #fdfdfd;
+    border: 1px solid #dcdde1;
 }
 
 .device-row {
     display: flex;
     align-items: flex-start;
     gap: 20px;
-    flex-wrap: wrap; /* allows wrapping on smaller screens */
-    padding: 4px 0;
 }
+
+.variable-fields {
+    margin-top: 8px;
+    padding-left: 32px;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+}
+
+.variable-row {
+    display: flex;
+    flex-direction: row; 
+    align-items: flex-start;
+    justify-content: space-between;
+    width: 100%;
+    flex-wrap: wrap;
+    gap: 12px;
+}
+
+.variable-group {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    flex-grow: 1;
+}
+
+.var-pairs {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 6px;
+}
+
+.var-pairs input[type="text"] {
+    width: 140px;
+    padding: 6px 8px;
+    font-size: 14px;
+    border: 1px solid #ced6e0;
+    border-radius: 5px;
+    background-color: #f9f9f9;
+}
+
+.add-var-btn {
+    flex-shrink: 0;
+    height: 34px;
+    padding: 0 14px;
+    margin-left: auto;
+}
+
+/* ========== File Deletion Selects ========== */
 
 #delete-file-selects select {
     margin-top: 10px;
     margin-bottom: 10px;
     width: 250px;
 }
+
+/* ========== Log View Button ========== */
 
 .view-logs-btn {
     background-color: #0056b3;
