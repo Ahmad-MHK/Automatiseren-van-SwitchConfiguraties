@@ -1,6 +1,4 @@
-_var1_
+enable
 configure terminal
-interface ethernet test
-description _Variable2_
-exit
+snmp-server enable
 exit

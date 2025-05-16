@@ -105,15 +105,10 @@ def send_ssh(ip, config_lines, cooldown, username, password):
         session.invoke_shell()
         time.sleep(1)
 
-        # Try to read welcome banner (if any)
-        try:
-            banner = session.recv(1024).decode("utf-8", errors="ignore")
-            if "Ctrl-Y" in banner or "Ctrl-Y to begin" in banner:
-                session.send("\x19\n")  # Attempt Ctrl+Y (usually doesn't work over SSH on ERS)
-                output.append("Sent: Ctrl+Y (SSH attempt)")
-                time.sleep(1)
-        except:
-            pass  # Safe to skip banner read if not supported
+        # REQUIRED for Avaya/ERS to unlock CLI
+        session.send("\x19\n")  # Ctrl+Y
+        output.append("Sent: Ctrl+Y to begin session")
+        time.sleep(1)
 
         # Attempt to enter config mode (ERS may silently block this)
         session.send("disable clipaging\n")
