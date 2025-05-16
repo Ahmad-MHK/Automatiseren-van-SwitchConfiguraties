@@ -1,3 +1,4 @@
+# Imports and setup
 from flask import Flask, render_template, request, redirect, url_for, flash
 import os, time, re
 import paramiko, telnetlib
@@ -5,21 +6,28 @@ from werkzeug.utils import secure_filename
 import socket
 from paramiko.transport import Transport
 
+# Initialize Flask app
 app = Flask(__name__)
-app.secret_key = "something-secret"
+app.secret_key = "something-secret"  # Secret key for sessions and flash messages
+
+# Enable detailed Paramiko logging
 paramiko.common.logging.basicConfig(level=paramiko.common.DEBUG)
 
+# Folder configuration for uploads
 app.config["UPLOAD_FOLDER"] = {
     "devices": "Devices",
     "configs": "Config"
 }
 
+# Folder path constants
 DEVICES_FOLDER = app.config["UPLOAD_FOLDER"]["devices"]
 CONFIG_FOLDER = app.config["UPLOAD_FOLDER"]["configs"]
 
+# Utility: convert device names to safe form field names
 def slugify(text):
     return re.sub(r'\W+', '_', text)
 
+# Load device info from files
 def get_device_entries():
     entries = []
     for file in os.listdir(DEVICES_FOLDER):
@@ -30,6 +38,7 @@ def get_device_entries():
             username = password = None
             variables = {}
 
+            # Parse credentials and variables
             for line in lines[1:]:
                 if line.lower().startswith("username:"):
                     username = line.split(":", 1)[1].strip()
@@ -52,6 +61,7 @@ def get_device_entries():
             })
     return entries
 
+# Extract variables submitted from the web form
 def extract_device_vars(form, device_form_id):
     result = {}
     prefix = f"var_{device_form_id}_"
@@ -64,53 +74,49 @@ def extract_device_vars(form, device_form_id):
                 result[f"_{var_name}_"] = var_value
     return result
 
+# Load config filenames
 def load_config_files():
     return [f for f in os.listdir(CONFIG_FOLDER) if os.path.isfile(os.path.join(CONFIG_FOLDER, f))]
 
+# Read config file content
 def load_config(filename):
     with open(os.path.join(CONFIG_FOLDER, filename)) as f:
         return [line.strip() for line in f if line.strip()]
 
+# Replace placeholders in config with actual values
 def replace_config_vars(line, vars_dict):
     for key, val in vars_dict.items():
         line = line.replace(key, val)
     return line
 
+# Send configuration over SSH to Avaya/ERS device
 def send_ssh(ip, config_lines, cooldown, username, password):
-    """
-    Sends configuration lines to a device over SSH.
-    Includes basic login check and optional banner scan.
-    Note: ERS switches do not support full config mode over SSH.
-    """
     output = []
     try:
-        from paramiko.transport import Transport
-
-        # Enable support for legacy encryption for ERS devices
+        # Set legacy crypto options globally
         Transport._preferred_kex = ['diffie-hellman-group1-sha1', 'diffie-hellman-group14-sha1']
-        Transport._preferred_ciphers = ('aes128-cbc', '3des-cbc', 'aes192-cbc', 'aes256-cbc')
+        Transport._preferred_keys = ['ssh-rsa']
+        Transport._preferred_macs = ['hmac-sha1', 'hmac-sha1-96', 'hmac-md5', 'hmac-md5-96']
+        Transport._preferred_ciphers = ['aes128-cbc', '3des-cbc', 'aes192-cbc', 'aes256-cbc']
 
-        # Create SSH transport session
+        # Establish SSH session
         transport = Transport((ip, 22))
         transport.start_client(timeout=10)
         transport.auth_password(username, password)
 
-        # Verify authentication
         if not transport.is_authenticated():
-            return f"[✗] SSH login failed for {ip} (invalid credentials?)"
+            return f"[\u2717] SSH login failed for {ip}"
 
-        # Open interactive shell
         session = transport.open_session()
         session.get_pty()
         session.invoke_shell()
         time.sleep(1)
 
-        # REQUIRED for Avaya/ERS to unlock CLI
+        # Required for ERS CLI
         session.send("\x19\n")  # Ctrl+Y
         output.append("Sent: Ctrl+Y to begin session")
         time.sleep(1)
 
-        # Attempt to enter config mode (ERS may silently block this)
         session.send("disable clipaging\n")
         time.sleep(0.5)
 
@@ -124,22 +130,21 @@ def send_ssh(ip, config_lines, cooldown, username, password):
         session.send("exit\n")
 
         transport.close()
-
-        return "\n".join(output) + f"\n[✓] SSH config sent successfully to {ip}"
+        return "\n".join(output) + f"\n[\u2713] SSH config sent successfully to {ip}"
 
     except Exception as e:
-        return f"[✗] SSH error for {ip}: {e}"
+        return f"[\u2717] SSH error for {ip}: {e}"
 
-
-
+# Send configuration using Telnet fallback
 def send_telnet(ip, config_lines, cooldown, username, password):
     output = []
     try:
         tn = telnetlib.Telnet(ip, timeout=10)
+
         try:
             banner = tn.read_until(b":", timeout=5)
             if b"Ctrl-Y" in banner:
-                tn.write(b"\x19\n")
+                tn.write(b"\x19\n")  # Ctrl+Y
                 output.append("Sent: Ctrl+Y (auto-detected in Telnet)")
                 time.sleep(1)
         except:
@@ -168,6 +173,7 @@ def send_telnet(ip, config_lines, cooldown, username, password):
         return f"[X] Telnet error for {ip}: {e}"
 
 # =================== Routes ===================
+# Root dashboard
 @app.route("/", methods=["GET", "POST"])
 def index():
     devices = get_device_entries()
@@ -224,6 +230,7 @@ def index():
                            device_files=device_files,
                            config_files=config_files)
 
+# Upload device or config file
 @app.route("/upload", methods=["POST"])
 def upload_file():
     file = request.files["file"]
@@ -234,6 +241,7 @@ def upload_file():
         flash(f"{file.filename} uploaded to {filetype}.")
     return redirect(url_for("index"))
 
+# Delete a device or config file
 @app.route("/delete", methods=["POST"])
 def delete_file():
     filename = secure_filename(request.form["filename"])
@@ -251,12 +259,14 @@ def delete_file():
         flash("Invalid file type.")
     return redirect(url_for("index"))
 
+# Show config push logs
 @app.route("/logs")
 def show_logs():
     files = sorted(os.listdir("logs"), reverse=True)
     logs = [(f, open(os.path.join("logs", f)).read()) for f in files]
     return render_template("logs.html", logs=logs)
 
+# Create a new device manually
 @app.route("/create-device", methods=["POST"])
 def create_device():
     ip = request.form["ip"].strip()
@@ -278,6 +288,7 @@ def create_device():
 
     return redirect(url_for("index"))
 
+# Test config push without logging
 @app.route("/test-send", methods=["POST"])
 def test_send():
     devices = get_device_entries()
@@ -316,7 +327,7 @@ def test_send():
                            device_files=os.listdir(DEVICES_FOLDER),
                            config_files=os.listdir(CONFIG_FOLDER))
 
-
+# Edit config templates
 @app.route("/edit-config", methods=["GET", "POST"])
 def edit_config():
     configs = load_config_files()
@@ -338,10 +349,12 @@ def edit_config():
 
     return render_template("edit_config.html", configs=configs, selected=selected, content=content)
 
+# Help/documentation page
 @app.route("/help")
 def help_page():
     return render_template("help.html")
 
+# Save variable values to device files
 @app.route("/save-vars", methods=["POST"])
 def save_variables():
     devices = get_device_entries()

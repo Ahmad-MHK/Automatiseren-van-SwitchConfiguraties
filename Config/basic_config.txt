@@ -1,4 +1,4 @@
 enable
 configure terminal
-snmp-server enable
+snmp-server _var1_
 exit
