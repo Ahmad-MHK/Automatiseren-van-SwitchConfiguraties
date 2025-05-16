@@ -90,31 +90,32 @@ def replace_config_vars(line, vars_dict):
     return line
 
 # Send configuration over SSH to Avaya/ERS device
-def send_ssh(ip, config_lines, cooldown, username, password):
+def send_ssh(ip, config_lines, cooldown, username, password, legacy_mode=False):
     output = []
     try:
-        # Set legacy crypto options globally
-        Transport._preferred_kex = ['diffie-hellman-group1-sha1', 'diffie-hellman-group14-sha1']
-        Transport._preferred_keys = ['ssh-rsa']
-        Transport._preferred_macs = ['hmac-sha1', 'hmac-sha1-96', 'hmac-md5', 'hmac-md5-96']
-        Transport._preferred_ciphers = ['aes128-cbc', '3des-cbc', 'aes192-cbc', 'aes256-cbc']
+        # Optional legacy crypto settings for older devices
+        if legacy_mode:
+            Transport._preferred_kex = ['diffie-hellman-group1-sha1', 'diffie-hellman-group14-sha1']
+            Transport._preferred_keys = ['ssh-rsa']
+            Transport._preferred_macs = ['hmac-sha1', 'hmac-sha1-96', 'hmac-md5', 'hmac-md5-96']
+            Transport._preferred_ciphers = ['aes128-cbc', '3des-cbc', 'aes192-cbc', 'aes256-cbc']
 
-        # Establish SSH session
+        # Start SSH session
         transport = Transport((ip, 22))
         transport.start_client(timeout=10)
         transport.auth_password(username, password)
 
         if not transport.is_authenticated():
-            return f"[\u2717] SSH login failed for {ip}"
+            return f"[X] SSH login failed for {ip}"
 
         session = transport.open_session()
         session.get_pty()
         session.invoke_shell()
         time.sleep(1)
 
-        # Required for ERS CLI
-        session.send("\x19\n")  # Ctrl+Y
-        output.append("Sent: Ctrl+Y to begin session")
+        # Always try Ctrl+Y just in case it's needed
+        session.send("\x19\n")
+        output.append("Sent: Ctrl+Y to attempt session unlock")
         time.sleep(1)
 
         session.send("disable clipaging\n")
@@ -126,14 +127,18 @@ def send_ssh(ip, config_lines, cooldown, username, password):
             time.sleep(cooldown)
 
         session.send("save config\n")
-        time.sleep(1)
         session.send("exit\n")
+        time.sleep(1)
 
+        session.close()
         transport.close()
-        return "\n".join(output) + f"\n[\u2713] SSH config sent successfully to {ip}"
+
+        return "\n".join(output) + f"\n[+] SSH config sent to {ip} (legacy={legacy_mode})"
 
     except Exception as e:
-        return f"[\u2717] SSH error for {ip}: {e}"
+        return f"[x] SSH error for {ip}: {e}"
+
+
 
 # Send configuration using Telnet fallback
 def send_telnet(ip, config_lines, cooldown, username, password):

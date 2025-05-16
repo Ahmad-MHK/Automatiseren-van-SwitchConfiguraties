@@ -1,0 +1,2 @@
+192.168.1.1 [password]
+[x] SSH error for 192.168.1.1: Invalid packet blocking

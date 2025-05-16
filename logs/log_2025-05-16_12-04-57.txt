@@ -1,0 +1,6 @@
+192.168.1.1 [password]
+Sent: enable
+Sent: configure terminal
+Sent: snmp-server enable
+Sent: exit
+[+] SSH config sent to 192.168.1.1 (legacy=False)
