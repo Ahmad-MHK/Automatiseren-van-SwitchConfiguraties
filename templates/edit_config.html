@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Edit Config File</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f5f6fa;
+            color: #2f3640;
+            margin: 0;
+            padding: 0 20px;
+        }
+
+        header {
+            background-color: #273c75;
+            color: white;
+            padding: 15px 20px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        header img {
+            height: 40px;
+        }
+
+        h1 {
+            margin: 0;
+            font-size: 24px;
+        }
+
+        .container {
+            background-color: white;
+            padding: 20px;
+            border-radius: 8px;
+            margin-top: 20px;
+            border: 1px solid #dcdde1;
+        }
+
+        label, select, textarea {
+            display: block;
+            margin-bottom: 12px;
+            width: 100%;
+        }
+
+        textarea {
+            height: 400px;
+            font-family: monospace;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            padding: 10px;
+            resize: vertical;
+        }
+
+        button {
+            background-color: #44bd32;
+            color: white;
+            padding: 10px 16px;
+            border: none;
+            border-radius: 5px;
+            font-size: 16px;
+            cursor: pointer;
+            margin-top: 10px;
+        }
+
+        button:hover {
+            background-color: #4cd137;
+        }
+
+        a.back-link {
+            display: inline-block;
+            margin-top: 20px;
+            text-decoration: none;
+            color: #273c75;
+            font-weight: bold;
+        }
+
+        .select-form {
+            margin-bottom: 20px;
+        }
+    </style>
+</head>
+<body>
+
+    <header>
+        <div>
+            <img src="{{ url_for('static', filename='Com1-Oranje.png') }}" alt="Logo">
+        </div>
+        <h1>Edit Configuration Files</h1>
+        <a href="{{ url_for('index') }}" class="view-logs-btn">← Back to Dashboard</a>
+    </header>
+
+    <div class="container">
+        <!-- Select config file -->
+        <form method="GET" action="{{ url_for('edit_config') }}" class="select-form">
+            <label for="filename"><strong>Select Config File:</strong></label>
+            <select name="filename" id="filename" onchange="this.form.submit()" required>
+                <option value="" disabled {% if not selected %}selected{% endif %}>-- Choose a config file --</option>
+                {% for file in configs %}
+                    <option value="{{ file }}" {% if file == selected %}selected{% endif %}>{{ file }}</option>
+                {% endfor %}
+            </select>
+        </form>
+
+        {% if selected %}
+        <!-- Edit config content -->
+        <form method="POST">
+            <input type="hidden" name="filename" value="{{ selected }}">
+            <label for="content"><strong>Editing: {{ selected }}</strong></label>
+            <textarea name="content" id="content">{{ content }}</textarea>
+            <button type="submit">💾 Save</button>
+        </form>
+        {% endif %}
+    </div>
+</body>
+</html>

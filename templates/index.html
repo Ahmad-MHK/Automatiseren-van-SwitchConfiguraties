@@ -7,32 +7,75 @@
 </head>
 <body>
 
+    <!-- Header section -->
     <header style="display: flex; align-items: center; justify-content: space-between;">
         <div>
             <img src="{{ url_for('static', filename='Com1-Oranje.png') }}" alt="Logo">
         </div>
         <h1>Push Config to Switch</h1>
-        <a href="{{ url_for('show_logs') }}" class="btn">View Logs</a>
+        <div>
+        <a href="{{ url_for('help_page') }}" class="btn view-logs-btn">❓ How to Use</a>
+        <a href="{{ url_for('edit_config') }}" class="view-logs-btn">Edit Config Files</a>
+        <a href="{{ url_for('show_logs') }}" class="btn view-logs-btn">📄 View Logs</a>
+        </div>
     </header>
+
+    <!-- Main Form for sending config -->
     <form method="POST">
         <h4>Select Devices:</h4>
 
+        <!-- Device filtering options -->
         <input type="text" id="device-search" placeholder="Search by IP..." style="width: 250px;">
         <label><input type="checkbox" id="filter-password"> Show only devices with password</label>
         <label><input type="checkbox" id="filter-no-password"> Show only devices without password</label>
         <button type="button" id="select-visible">Select All Visible</button>
         <button type="button" id="deselect-all">Deselect All Devices</button>
         <button type="button" id="select-all">Select All Devices</button>
+        <h4>Add Variable to All Selected Devices</h4>
+        <div style="display: flex; gap: 10px; align-items: center; margin-bottom: 10px;">
+            <input type="text" id="bulk-var-name" placeholder="Variable name..." style="width: 200px;">
+            <button type="button" id="add-var-to-selected" style="background-color: #00b894;">+ Add to Selected</button>
+        </div>
 
+        
+
+        <!-- Device list with dynamic variable entry per device -->
         <div id="device-list">
             {% for device in devices %}
-                <div class="device-entry" data-ip="{{ device.ip }}" data-password="{{ 'yes' if device.has_password else 'no' }}">
-                    <input type="checkbox" name="devices" value="{{ device.id }}">
-                    {{ device.label }}
+            <div class="device-entry" data-ip="{{ device.ip }}" data-password="{{ 'yes' if device.has_password else 'no' }}">
+                <div class="device-row">
+                    <label>
+                        <input type="checkbox" class="device-checkbox" name="devices" value="{{ device.id }}" data-form="{{ device.form_id }}">
+                        {{ device.label }}
+                    </label>
+                    <div class="variable-fields" style="display: none;">
+                        <div class="variable-row">
+                            <div class="var-pairs">
+                                {% set var_items = device.variables.items() if device.variables else [] %}
+                                {% for k, v in device.variables.items() %}
+                                    <div class="var-pairs" style="display: flex; gap: 10px; align-items: center;">
+                                        <input type="text" name="var_{{ device.form_id }}_{{ loop.index0 }}_key" value="{{ k.strip('_') }}" placeholder="Variable name">
+                                        <input type="text" name="var_{{ device.form_id }}_{{ loop.index0 }}_value" value="{{ v }}" placeholder="Value">
+                                        <button type="button" class="remove-var-btn">-</button>
+                                    </div>
+                                {% endfor %}
+                                {% if not var_items %}
+                                    <div class="var-pairs" style="display: flex; gap: 10px; align-items: center;">
+                                        <input type="text" name="var_{{ device.form_id }}_0_key" placeholder="Variable name">
+                                        <input type="text" name="var_{{ device.form_id }}_0_value" placeholder="Value">
+                                        <button type="button" class="remove-var-btn">-</button>
+                                    </div>
+                                {% endif %}
+                            </div>
+                            <button type="button" class="add-var-btn" data-device="{{ device.form_id }}">+</button>
+                        </div>
+                    </div>
                 </div>
+            </div>
             {% endfor %}
         </div>
 
+        <!-- Configuration file and protocol selection -->
         <label>Select Config File:</label>
         <select name="config">
             {% for config in configs %}
@@ -49,14 +92,24 @@
         <label>Cooldown (ms):</label>
         <input type="number" name="cooldown" value="1000"><br>
 
-        <button name="send_config" type="submit">Send Config</button>
+        <div style="display: flex; gap: 10px; margin-top: 15px;">
+            <button name="send_config" type="submit">Send Config</button>
+            <button type="submit" formaction="/test-send" formmethod="POST" style="background-color: orange;">
+                Test Send Config
+            </button>
+            <button type="submit" formaction="/save-vars" formmethod="POST" style="background-color: #00a8ff;">
+                💾 Save Variables Only
+            </button>
+        </div>
     </form>
 
+    <!-- Result output -->
     {% if result %}
         <h2>Result:</h2>
         <pre>{{ result }}</pre>
     {% endif %}
 
+    <!-- File upload form -->
     <form method="POST" action="/upload" enctype="multipart/form-data">
         <h2>Upload Device or Config File</h2>
         <input type="file" name="file" required>
@@ -67,96 +120,205 @@
         <button type="submit">Upload</button>
     </form>
 
+    <form method="POST" action="/create-device">
+        <h2>Create New Device Entry</h2>
+        <input type="text" name="ip" placeholder="IP Address" required>
+        <input type="text" name="username" placeholder="Username (optional)">
+        <input type="text" name="password" placeholder="Password (optional)">
+        <button type="submit">Create Device File</button>
+    </form>
+
+
+    <!-- File deletion form -->
     <form method="POST" action="/delete">
         <h2>Delete Files</h2>
-        <select name="filetype">
+
+        <label for="filetype-select">File Type:</label>
+        <select name="filetype" id="filetype-select">
             <option value="devices">Device</option>
             <option value="configs">Config</option>
         </select>
-        <input type="text" name="filename" placeholder="Exact filename" required>
-        <button type="submit">Delete</button>
+
+        <label>Select File:</label>
+        <select id="delete-device-select" style="display:none;">
+            {% for f in device_files %}
+                <option value="{{ f }}">{{ f }}</option>
+            {% endfor %}
+        </select>
+
+        <select id="delete-config-select" style="display:none;">
+            {% for f in config_files %}
+                <option value="{{ f }}">{{ f }}</option>
+            {% endfor %}
+        </select>
+
+        <input type="hidden" name="filename" id="filename-hidden">
+
+        <button type="submit" onclick="return confirm('Are you sure you want to delete this file?');">Delete</button>
     </form>
 
-    <form action="">
-        <h2>Device File look Like</h2>
-        <label>With a password</label>
+    
+    <!-- Device file format hints -->
+    <form>
+        <h2>Device File Format</h2>
+        <label>With password:</label>
         <pre>
             192.168.1.1
             username:admin
-            password:Com123Com!@#
+            password:secret
         </pre>
-        <label>no password</label>
+        <label>Without password:</label>
         <pre>
             192.168.1.1
         </pre>
     </form>
 
-<footer>
-    Made by Ahmad Mahouk
-</footer>
+    <footer>
+        Made by Ahmad Mahouk
+    </footer>
 
-<script>
-$(document).ready(function() {
-    $("#filter-no-password").on("change", filterDevices);
-    function filterDevices() {
-        const search = $("#device-search").val().toLowerCase();
-        const filterPwd = $("#filter-password").is(":checked");
+    <!-- JavaScript behavior for filtering, variable entry, and toggling -->
+    <script>
+    $(document).ready(function () {
+        function filterDevices() {
+            const search = $("#device-search").val().toLowerCase();
+            const filterPwd = $("#filter-password").is(":checked");
+            const filterNoPwd = $("#filter-no-password").is(":checked");
 
-        $(".device-entry").each(function() {
-            const ip = $(this).data("ip").toLowerCase();
-            const hasPwd = $(this).data("password") === "yes";
-            const matchesSearch = ip.includes(search);
-            const matchesPwd = !filterPwd || hasPwd;
+            $(".device-entry").each(function () {
+                const ip = $(this).data("ip").toLowerCase();
+                const hasPwd = $(this).data("password") === "yes";
+                const matchesSearch = ip.includes(search);
+                const matchesWithPwd = !filterPwd || hasPwd;
+                const matchesNoPwd = !filterNoPwd || !hasPwd;
 
-            if (matchesSearch && matchesPwd) {
-                $(this).show();
-            } else {
-                $(this).hide();
-                $(this).find("input[type=checkbox]").prop("checked", false);
+                if (matchesSearch && matchesWithPwd && matchesNoPwd) {
+                    $(this).show();
+                } else {
+                    $(this).hide();
+                    $(this).find("input[type=checkbox]").prop("checked", false);
+                    $(this).find(".variable-fields").hide();
+                }
+            });
+        }
+        // Remove a variable input row
+            $(document).on("click", ".remove-var-btn", function () {
+                $(this).closest(".var-pairs").remove();
+            });
+
+        // File deletion based on selected type
+            const filetypeSelect = $("#filetype-select");
+            const deviceSelect = $("#delete-device-select");
+            const configSelect = $("#delete-config-select");
+            const hiddenInput = $("#filename-hidden");
+
+            function updateFileSelectVisibility() {
+                const type = filetypeSelect.val();
+
+                if (type === "devices") {
+                    deviceSelect.show().attr("name", "filename");
+                    configSelect.hide().removeAttr("name");
+                    hiddenInput.val(deviceSelect.val());
+                } else {
+                    configSelect.show().attr("name", "filename");
+                    deviceSelect.hide().removeAttr("name");
+                    hiddenInput.val(configSelect.val());
+                }
             }
+
+            // Update hidden input when user selects a file
+            deviceSelect.on("change", function () {
+                hiddenInput.val($(this).val());
+            });
+
+            configSelect.on("change", function () {
+                hiddenInput.val($(this).val());
+            });
+
+            filetypeSelect.on("change", function () {
+                updateFileSelectVisibility();
+            });
+
+            updateFileSelectVisibility(); // Init on page load
+        
+
+
+        // Filtering events
+        $("#device-search").on("input", filterDevices);
+        $("#filter-password").on("change", filterDevices);
+        $("#filter-no-password").on("change", filterDevices);
+
+        // Selection helpers
+        $("#select-visible").on("click", function () {
+            $(".device-entry:visible input[type=checkbox]").prop("checked", true).trigger("change");
         });
-    }
+        $("#select-all").on("click", function () {
+            $(".device-entry input[type=checkbox]").prop("checked", true).trigger("change");
+        });
+        $("#deselect-all").on("click", function () {
+            $(".device-entry input[type=checkbox]").prop("checked", false).trigger("change");
+        });
 
-    $("#device-search").on("input", filterDevices);
-    $("#filter-password").on("change", filterDevices);
+        // Toggle variable section visibility per device
+        $(document).on("change", ".device-checkbox", function () {
+            const entry = $(this).closest(".device-entry");
+            const variableFields = entry.find(".variable-fields");
+            this.checked ? variableFields.show() : variableFields.hide().find("input[type='text']").val("");
+        });
 
-    $("#select-visible").on("click", function() {
-        $(".device-entry:visible input[type=checkbox]").prop("checked", true);
-    });
+        // Add more variable fields per device
+        $(document).on("click", ".add-var-btn", function () {
+            const deviceId = $(this).data("device");
+            const container = $(this).siblings(".var-pairs").last().parent();
+            const index = container.find(".var-pairs").length;
+            const newRow = `
+                <div class="var-pairs" style="display: flex; gap: 10px; align-items: center;">
+                    <input type="text" name="var_${deviceId}_${index}_key" placeholder="Variable name" style="width: 150px;">
+                    <input type="text" name="var_${deviceId}_${index}_value" placeholder="Value" style="width: 150px;">
+                    <button type="button" class="remove-var-btn">-</button>
+                </div>`;
+                entry.find(".variable-fields").show();
+            $(this).siblings(".var-pairs").last().parent().append(newRow);
+        });
 
-    $("#select-all").on("click", function() {
-    $(".device-entry input[type=checkbox]").prop("checked", true);
-    });
-
-    $("#deselect-all").on("click", function() {
-        $(".device-entry input[type=checkbox]").prop("checked", false);
-    });
-
-    function filterDevices() {
-        const search = $("#device-search").val().toLowerCase();
-        const filterPwd = $("#filter-password").is(":checked");
-        const filterNoPwd = $("#filter-no-password").is(":checked");
-
-        $(".device-entry").each(function () {
-            const ip = $(this).data("ip").toLowerCase();
-            const hasPwd = $(this).data("password") === "yes";
-            const matchesSearch = ip.includes(search);
-            const matchesWithPwd = !filterPwd || hasPwd;
-            const matchesNoPwd = !filterNoPwd || !hasPwd;
-
-            if (matchesSearch && matchesWithPwd && matchesNoPwd) {
-                $(this).show();
-            } else {
-                $(this).hide();
-                $(this).find("input[type=checkbox]").prop("checked", false);
+        // Bulk add variable to all selected devices
+        $("#add-var-to-selected").on("click", function () {
+            const varName = $("#bulk-var-name").val().trim();
+            if (!varName) {
+                alert("Please enter a variable name.");
+                return;
             }
+
+            $(".device-checkbox:checked").each(function () {
+                const entry = $(this).closest(".device-entry");
+                const formId = $(this).data("form");
+                const container = entry.find(".var-pairs").last().parent();
+
+                // Prevent duplicate variable names
+                const existingVars = container.find("input[name^='var_" + formId + "']").map(function () {
+                    return $(this).val().trim();
+                }).get();
+
+                if (existingVars.map(v => v.toLowerCase()).includes(varName.toLowerCase())) return;
+
+                const index = container.find(".var-pairs").length;
+
+                const newRow = `
+                    <div class="var-pairs" style="display: flex; gap: 10px; align-items: center;">
+                        <input type="text" name="var_${formId}_${index}_key" value="${varName}" placeholder="Variable name" style="width: 150px;">
+                        <input type="text" name="var_${formId}_${index}_value" value="" placeholder="Value" style="width: 150px;">
+                        <button type="button" class="remove-var-btn">-</button>
+                    </div>`;
+                
+                container.append(newRow);
+            });
+
+            // Clear input after adding
+            $("#bulk-var-name").val("");
         });
-    }
 
 
-});
-</script>
-
-
+    });
+    </script>
 </body>
 </html>

@@ -1,0 +1,36 @@
+enable
+configure terminal
+
+vlan members add 3147 1-12
+
+vlan ports 1 pvid 3147
+vlan ports 1 tagging untagpvidOnly
+interface ethernet 1
+name "AP"
+no shutdown
+slpp-guard enable timeout 120
+exit
+
+vlan ports 2 pvid 3147
+vlan ports 2 tagging untagpvidOnly
+interface ethernet 2
+name "AP"
+no shutdown
+slpp-guard enable timeout 120
+exit
+
+vlan ports 3 pvid 3147
+vlan ports 3 tagging untagpvidOnly
+interface ethernet 3
+name "AP"
+no shutdown
+slpp-guard enable timeout 120
+exit
+
+vlan ports 4 pvid 3147
+vlan ports 4 tagging untagpvidOnly
+interface ethernet 4
+name "AP"
+no shutdown
+slpp-guard enable timeout 120
+exit
